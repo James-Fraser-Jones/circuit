@@ -23,13 +23,26 @@ data Lambda = Lam String Lambda
 
 instance Show Lambda where
     show l = case l of
-        Lam s l -> "(\\" <> s <> "." <> show l <> ")"
-        App a b -> "(" <> show a <> " " <> show b <> ")"
+        Lam s l -> "\\" <> s <> "." <> show l
+        App a b -> (if isLam a then bracket else id) (show a) <> " " <> (if isLam b || isApp b then bracket else id) (show b)
         Var s -> s
 
 --parsec for this?
 parse :: String -> Either () Lambda
 parse = undefined
+
+bracket :: String -> String
+bracket s = "(" <> s <> ")"
+
+isLam :: Lambda -> Bool
+isLam l = case l of
+    Lam _ _ -> True
+    _ -> False
+
+isApp :: Lambda -> Bool
+isApp l = case l of
+    App _ _ -> True
+    _ -> False
 
 ---------------------------------------------------------------
 
@@ -39,10 +52,20 @@ data Brujin = BLam Brujin
             | BApp Brujin Brujin
             | BInd Int
 
+isBLam :: Brujin -> Bool
+isBLam b = case b of
+    BLam _ -> True
+    _ -> False
+
+isBApp :: Brujin -> Bool
+isBApp b = case b of
+    BApp _ _ -> True
+    _ -> False
+
 instance Show Brujin where
     show b = case b of
-        BLam b -> "(\\." <> show b <> ")"
-        BApp b c -> "(" <> show b <> " " <> show c <> ")"
+        BLam b -> "\\." <> show b
+        BApp b c -> (if isBLam b then bracket else id) (show b) <> " " <> (if isBLam c || isBApp c then bracket else id) (show c)
         BInd n -> show n
 
 brujin :: Context -> Lambda -> Brujin
