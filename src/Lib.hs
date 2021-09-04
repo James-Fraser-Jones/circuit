@@ -1,10 +1,12 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module Lib
     ( fileAccess
     ) where
 
+import Data.Maybe
 import Data.List
+import Control.Applicative
+import Control.Monad
+
 import GHC.IO.Encoding
 
 ---------------------------------------------------------------
@@ -17,6 +19,108 @@ fileAccess = do
 
 ---------------------------------------------------------------
 
+newtype Parser a = Parser { runParser :: String -> Either String (String, a) }
+
+instance Functor Parser where
+    fmap f p = Parser $ (fmap $ fmap $ fmap f) $ runParser p
+
+instance Applicative Parser where
+    pure a = Parser $ \s -> Right (s, a)
+    p <*> q = Parser $ \s -> case runParser p s of
+        Right (s', f) -> (fmap $ fmap f) $ runParser q s' 
+        Left err -> Left err
+        
+instance Monad Parser where
+    return = pure
+    p >>= f = Parser $ \s -> case runParser p s of
+        Right (s', a) -> runParser (f a) s'
+        Left err -> Left err
+
+instance Alternative Parser where
+    empty = Parser $ const $ Left "Parse Error: Empty"
+    p <|> q = Parser $ \s -> case runParser p s of
+        Left _ -> runParser q s
+        val -> val
+
+---------------------------------------------------------------
+
+parse :: String -> Either String Lambda
+parse s = fmap snd $ runParser (parseLambda <* finish) $ removeNewlines s
+
+finish :: Parser ()
+finish = Parser $ \s -> 
+    if s == "" 
+    then Right (s, ())
+    else Left $ "Parse Error: Did not consume entire input: \"" <> s <> "\" was remaining"
+
+parseLambda :: Parser Lambda
+parseLambda =  parseApp
+           <|> parseBrackets
+           <|> parseLam
+           <|> parseVar
+
+parseBrackets :: Parser Lambda
+parseBrackets = char '(' *> parseLambda <* char ')'
+
+parseLam :: Parser Lambda
+parseLam = Lam <$> (oneOf lambdaChars *> identifier <* char '.') <*> parseLambda
+
+parseApp :: Parser Lambda
+parseApp = App <$> ((parseLam <|> parseVar) <* oneOf whitespaceChars) <*> parseLambda
+
+parseVar :: Parser Lambda
+parseVar = Var <$> identifier
+
+identifier :: Parser String
+identifier = some (oneOf lowercaseChars)
+
+oneOf :: String -> Parser Char
+oneOf s = satisfy ("flip elem " <> s) (flip elem s) 
+
+anyChar :: Parser Char
+anyChar = satisfy "const True" (const True) 
+
+char :: Char -> Parser Char
+char c = satisfy (pure c <> " ==") (c ==) 
+
+satisfy :: String -> (Char -> Bool) -> Parser Char
+satisfy predicate f = Parser $ \s -> case s of
+    [] -> Left $ "Parse Error: Expected char but input was empty"
+    (x:xs) -> if f x
+        then Right (xs, x)
+        else Left $ "Parse Error: char: \'" <> pure x <> "\' did not satisfy the predicate: " <> predicate
+
+-- brackets :: Parser String
+-- brackets = char '(' *> some anyChar <* char ')' 
+
+-- someWhitespace :: Parser ()
+-- someWhitespace = some (oneOf whitespaceChars) *> pure ()
+
+-- manyWhitespace :: Parser ()
+-- manyWhitespace = many (oneOf whitespaceChars) *> pure ()
+
+--need this to make left-recursive grammars terminate
+chainl1 = undefined
+
+---------------------------------------------------------------
+
+removeNewlines :: String -> String
+removeNewlines = join . lines
+
+whitespaceChars :: String
+whitespaceChars = [' ', '\t']
+
+lambdaChars :: String
+lambdaChars = ['\\', 'λ']
+
+lowercaseChars :: String
+lowercaseChars = ['a'..'z']
+
+-- filterOutChars :: String -> String -> String
+-- filterOutChars chars = filter (\c -> isNothing $ find (c ==) chars)
+
+---------------------------------------------------------------
+
 data Lambda = Lam String Lambda
             | App Lambda Lambda
             | Var String
@@ -26,10 +130,6 @@ instance Show Lambda where
         Lam s l -> "\\" <> s <> "." <> show l
         App a b -> (if isLam a then bracket else id) (show a) <> " " <> (if isLam b || isApp b then bracket else id) (show b)
         Var s -> s
-
---megaparsec for this?
-parse :: String -> Either () Lambda
-parse = undefined
 
 bracket :: String -> String
 bracket s = "(" <> s <> ")"
