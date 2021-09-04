@@ -23,7 +23,7 @@ data Lambda = Lam String Lambda
 
 instance Show Lambda where
     show l = case l of
-        Lam s l -> "(λ" <> s <> "." <> show l <> ")"
+        Lam s l -> "(\\" <> s <> "." <> show l <> ")"
         App a b -> "(" <> show a <> " " <> show b <> ")"
         Var s -> s
 
@@ -41,7 +41,7 @@ data Brujin = BLam Brujin
 
 instance Show Brujin where
     show b = case b of
-        BLam b -> "(λ." <> show b <> ")"
+        BLam b -> "(\\." <> show b <> ")"
         BApp b c -> "(" <> show b <> " " <> show c <> ")"
         BInd n -> show n
 
@@ -52,10 +52,59 @@ brujin c l = case l of
     Var s -> BInd $ maybe (-1) id $ lookup s (unContext c)
 
 update :: String -> Context -> Context
-update s c = Context $ (s, 0) : fmap (fmap succ) (unContext c) 
+update s c = Context $ (s, 1) : fmap (fmap succ) (unContext c) 
+
+substitute :: Brujin -> Brujin -> Brujin
+substitute sub b = substitute' 0 sub b
+
+substitute' :: Int -> Brujin -> Brujin -> Brujin
+substitute' n sub b = case b of
+    BLam b' -> BLam $ substitute' (succ n) sub b'
+    BApp b1 b2 -> BApp (substitute' n sub b1) (substitute' n sub b2)
+    BInd n' -> if n' == n then sub else BInd n'
+
+decrement :: Brujin -> Brujin
+decrement b = case b of
+    BLam b' -> BLam $ decrement b'
+    BApp b1 b2 -> BApp (decrement b1) (decrement b2)
+    BInd n -> BInd $ pred n
 
 reduce :: Brujin -> Brujin
-reduce = undefined
+reduce b = case b of
+    BApp (BLam b1) b2 -> substitute b2 $ decrement b1
+    BApp b1 b2 -> BApp (reduce b1) (reduce b2)
+    BLam b' -> BLam $ reduce b'
+    BInd n -> BInd n
+
+fixpoint :: Brujin
+fixpoint = 
+    BLam (
+        BApp (
+            BLam (
+                BApp (
+                    BInd 2
+                )(
+                    BApp (
+                        BInd 1
+                    )(
+                        BInd 1
+                    )
+                )
+            )
+        )(
+            BLam (
+                BApp (
+                    BInd 2
+                )(
+                    BApp (
+                        BInd 1
+                    )(
+                        BInd 1
+                    )
+                )
+            )
+        )
+    )
 
 ---------------------------------------------------------------
 
