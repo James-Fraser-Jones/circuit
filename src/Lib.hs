@@ -27,7 +27,7 @@ instance Show Lambda where
         App a b -> (if isLam a then bracket else id) (show a) <> " " <> (if isLam b || isApp b then bracket else id) (show b)
         Var s -> s
 
---parsec for this?
+--megaparsec for this?
 parse :: String -> Either () Lambda
 parse = undefined
 
@@ -44,9 +44,57 @@ isApp l = case l of
     App _ _ -> True
     _ -> False
 
+fixpoint :: Lambda
+fixpoint = 
+    Lam (
+        "f"
+    )(
+        App (
+            Lam (
+                "x"
+            )(
+                App (
+                    Var "f"
+                )(
+                    App (
+                        Var "x"
+                    )(
+                        Var "x"
+                    )
+                )
+            )
+        )(
+            Lam (
+                "x"
+            )(
+                App (
+                    Var "f"
+                )(
+                    App (
+                        Var "x"
+                    )(
+                        Var "x"
+                    )
+                )
+            )
+        )
+    )
+
 ---------------------------------------------------------------
 
-newtype Context = Context { unContext :: [(String, Int)] }
+newtype Context = Context { unContext :: [(String, Int)] } deriving Show
+
+emptyContext :: Context
+emptyContext = Context []
+
+update :: String -> Context -> Context
+update s (Context c) = 
+    let c' = fmap (fmap succ) c 
+     in Context $ case findIndex (\(s', _) -> s' == s) c of
+            Just n -> take n c' <> [(s, 1)] <> drop (n + 1) c'
+            Nothing -> (s, 1) : c'
+
+---------------------------------------------------------------
 
 data Brujin = BLam Brujin
             | BApp Brujin Brujin
@@ -64,18 +112,18 @@ isBApp b = case b of
 
 instance Show Brujin where
     show b = case b of
-        BLam b -> "\\." <> show b
+        BLam b -> "\\ " <> show b
         BApp b c -> (if isBLam b then bracket else id) (show b) <> " " <> (if isBLam c || isBApp c then bracket else id) (show c)
         BInd n -> show n
 
-brujin :: Context -> Lambda -> Brujin
-brujin c l = case l of
-    Lam s l -> BLam $ brujin (update s c) l
-    App a b -> BApp (brujin c a) (brujin c b)
-    Var s -> BInd $ maybe (-1) id $ lookup s (unContext c)
+brujin :: Lambda -> Brujin
+brujin = brujin' emptyContext
 
-update :: String -> Context -> Context
-update s c = Context $ (s, 1) : fmap (fmap succ) (unContext c) 
+brujin' :: Context -> Lambda -> Brujin
+brujin' c l = case l of
+    Lam s l -> BLam $ brujin' (update s c) l
+    App a b -> BApp (brujin' c a) (brujin' c b)
+    Var s -> BInd $ maybe (-1) id $ lookup s (unContext c)
 
 substitute :: Brujin -> Brujin -> Brujin
 substitute sub b = substitute' 0 sub b
@@ -92,42 +140,19 @@ decrement b = case b of
     BApp b1 b2 -> BApp (decrement b1) (decrement b2)
     BInd n -> BInd $ pred n
 
-reduce :: Brujin -> Brujin
-reduce b = case b of
-    BApp (BLam b1) b2 -> substitute b2 $ decrement b1
-    BApp b1 b2 -> BApp (reduce b1) (reduce b2)
-    BLam b' -> BLam $ reduce b'
-    BInd n -> BInd n
+reduce_normal :: Brujin -> Maybe Brujin
+reduce_normal b = case b of
+    BApp (BLam b1) b2 -> Just $ substitute b2 $ decrement b1    --reduce outer before inner
+    BApp b1 b2 -> case reduce_normal b1 of                      --reduce left values before right ones
+        Just b' -> Just $ BApp b' b2
+        Nothing -> BApp b1 <$> reduce_normal b2
+    BLam b' -> BLam <$> reduce_normal b'
+    BInd n -> Nothing
 
-fixpoint :: Brujin
-fixpoint = 
-    BLam (
-        BApp (
-            BLam (
-                BApp (
-                    BInd 2
-                )(
-                    BApp (
-                        BInd 1
-                    )(
-                        BInd 1
-                    )
-                )
-            )
-        )(
-            BLam (
-                BApp (
-                    BInd 2
-                )(
-                    BApp (
-                        BInd 1
-                    )(
-                        BInd 1
-                    )
-                )
-            )
-        )
-    )
+normalize :: Brujin -> [Brujin]
+normalize b = b : maybe [] normalize (reduce_normal b)
+
+--putStr $ unlines $ fmap show $ take 5 $ normalize $ brujin fixpoint
 
 ---------------------------------------------------------------
 
