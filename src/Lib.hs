@@ -244,13 +244,7 @@ normalize b = b : maybe [] normalize (reduce_normal b)
 data Symbol = EMPTY
             | FULL
             | QUEST
-            | TLS
-            | TRS
-            | BLS
-            | BRS
-            | VES
-            | HOS
-            | HOSS
+
             | TLD
             | TRD
             | BLD
@@ -265,16 +259,27 @@ data Symbol = EMPTY
             | VEB
             | HOB
             | HOBS
+
+            | LAM
+            | APP
+            | TEE
             deriving (Enum)
 
 symbols :: String
-symbols = " █?┌┐└┘│─┼╔╗╚╝║═╪┏┓┗┛┃━┿"
+symbols = " █?" <> "╔╗╚╝║═╪┏┓┗┛┃━┿" <> "╫┠┬"
 
 symbolToChar :: Symbol -> Char
 symbolToChar s = symbols !! fromEnum s
 
 charToSymbol :: Char -> Maybe Symbol
 charToSymbol c = toEnum <$> findIndex (== c) symbols
+
+boxSymbols :: Bool -> (Symbol, Symbol, Symbol, Symbol, Symbol, Symbol, Symbol)
+boxSymbols isBold =
+    if isBold then
+        (TLD, TRD, BLD, BRD, VED, HOD, HODS)
+    else
+        (TLB, TRB, BLB, BRB, VEB, HOB, HOBS)
 
 ---------------------------------------------------------------
 --Circuits
@@ -290,14 +295,39 @@ emptyCircuit = Circuit [] (0, 0) []
 circuit :: Brujin -> Circuit
 circuit b = case b of
     BLam b -> undefined
-    BApp b c -> 
-        let
-            Circuit gb (xb, yb) ib = circuit b
-            Circuit gc (xc, yc) ic = circuit c
-         in
-            undefined
+    BApp b c -> undefined
     BInd n -> 
         if n < 0 then
             Circuit [[QUEST, QUEST]] (2, 1) []
         else
             Circuit [[FULL, FULL]] (2, 1) [(0, n)]
+
+intHalfer :: Int -> (Int, Int) --returns (smaller, larger)
+intHalfer n = (n `div` 2, n `div` 2 + n `mod` 2)
+
+shiftIndices :: Int -> Circuit -> Circuit
+shiftIndices n c = undefined
+
+decrementIndices :: Circuit -> Circuit
+decrementIndices c = undefined
+
+validIndices :: Circuit -> [Int] --returns locations of all indices with a 1
+validIndices c = undefined
+
+pad :: Int -> Int -> Int -> Int -> Circuit -> Circuit
+pad top bottom left right c = undefined
+
+box :: Bool -> Circuit -> Circuit
+box isBold c = undefined
+
+append :: Int -> Circuit -> Circuit -> Circuit
+append n c1 c2 = undefined
+
+align :: Circuit -> Circuit -> (Circuit, Circuit)
+align c1 c2 = undefined
+
+apper :: Circuit -> Circuit --adds application arrow
+apper c = undefined
+
+lammer :: Circuit -> Circuit --adds abstraction arrow with wiring
+lammer c = undefined
