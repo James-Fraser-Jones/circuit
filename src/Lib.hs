@@ -19,106 +19,50 @@ fileAccess = do
 
 ---------------------------------------------------------------
 
-newtype Parser a = Parser { runParser :: String -> Either String (String, a) }
+fixpoint_string :: String
+fixpoint_string = "\\f.(\\x.f (x x)) (\\x.f (x x))"
 
-instance Functor Parser where
-    fmap f p = Parser $ (fmap $ fmap $ fmap f) $ runParser p
+ --whitespace with specifically ')' '(' or some lowercase letters either side 
+data Token = White
+           | Lambda
+           | Dot
+           | Open
+           | Close
+           | Str String
+           deriving (Eq, Show)
 
-instance Applicative Parser where
-    pure a = Parser $ \s -> Right (s, a)
-    p <*> q = Parser $ \s -> case runParser p s of
-        Right (s', f) -> (fmap $ fmap f) $ runParser q s' 
-        Left err -> Left err
-        
-instance Monad Parser where
-    return = pure
-    p >>= f = Parser $ \s -> case runParser p s of
-        Right (s', a) -> runParser (f a) s'
-        Left err -> Left err
+--this is all kinda ugly, there's got to be a slightly nicer way :(
+token :: String -> [Token]
+token s = reverse $ token' s []
 
-instance Alternative Parser where
-    empty = Parser $ const $ Left "Parse Error: Empty"
-    p <|> q = Parser $ \s -> case runParser p s of
-        Left _ -> runParser q s
-        val -> val
+token' :: String -> [Token] -> [Token]
+token' "" ts = ts
+token' (c:cs) [] = token' cs $ pure $ getToken c
+token' (c:cs) (t:ts) = token' cs $ case getToken c of
+    White -> if t == White then t:ts else White:t:ts
+    Str s -> case t of
+        Str s' -> (Str $ s' <> s):ts
+        t -> (Str s):t:ts
+    tok -> tok:t:ts
 
----------------------------------------------------------------
+getToken :: Char -> Token
+getToken c = case c of
+    '(' -> Open
+    ')' -> Close 
+    '\\' -> Lambda
+    '.' -> Dot
+    ' ' -> White
+    x -> Str $ pure x
 
-parse :: String -> Either String Lambda
-parse s = fmap snd $ runParser (parseLambda <* finish) $ removeNewlines s
-
-finish :: Parser ()
-finish = Parser $ \s -> 
-    if s == "" 
-    then Right (s, ())
-    else Left $ "Parse Error: Did not consume entire input: \"" <> s <> "\" was remaining"
-
-parseLambda :: Parser Lambda
-parseLambda =  parseApp
-           <|> parseBrackets
-           <|> parseLam
-           <|> parseVar
-
-parseBrackets :: Parser Lambda
-parseBrackets = char '(' *> parseLambda <* char ')'
-
-parseLam :: Parser Lambda
-parseLam = Lam <$> (oneOf lambdaChars *> identifier <* char '.') <*> parseLambda
-
-parseApp :: Parser Lambda
-parseApp = App <$> ((parseLam <|> parseVar) <* oneOf whitespaceChars) <*> parseLambda
-
-parseVar :: Parser Lambda
-parseVar = Var <$> identifier
-
-identifier :: Parser String
-identifier = some (oneOf lowercaseChars)
-
-oneOf :: String -> Parser Char
-oneOf s = satisfy ("flip elem " <> s) (flip elem s) 
-
-anyChar :: Parser Char
-anyChar = satisfy "const True" (const True) 
-
-char :: Char -> Parser Char
-char c = satisfy (pure c <> " ==") (c ==) 
-
-satisfy :: String -> (Char -> Bool) -> Parser Char
-satisfy predicate f = Parser $ \s -> case s of
-    [] -> Left $ "Parse Error: Expected char but input was empty"
-    (x:xs) -> if f x
-        then Right (xs, x)
-        else Left $ "Parse Error: char: \'" <> pure x <> "\' did not satisfy the predicate: " <> predicate
-
--- brackets :: Parser String
--- brackets = char '(' *> some anyChar <* char ')' 
-
--- someWhitespace :: Parser ()
--- someWhitespace = some (oneOf whitespaceChars) *> pure ()
-
--- manyWhitespace :: Parser ()
--- manyWhitespace = many (oneOf whitespaceChars) *> pure ()
-
---need this to make left-recursive grammars terminate
-chainl1 = undefined
-
----------------------------------------------------------------
-
-removeNewlines :: String -> String
-removeNewlines = join . lines
-
-whitespaceChars :: String
-whitespaceChars = [' ', '\t']
-
-lambdaChars :: String
-lambdaChars = ['\\', 'λ']
-
-lowercaseChars :: String
-lowercaseChars = ['a'..'z']
-
--- filterOutChars :: String -> String -> String
--- filterOutChars chars = filter (\c -> isNothing $ find (c ==) chars)
-
+findApps :: String -> String
+findApps (a:b:c:xs) = 
+    if b == ' ' then
+        if ((a == ')' || a `elem` ['a'..'z']) && ((c == '(' || c `elem` ['a'..'z']) then
+            a:'@':(findApps (c:xs))
+        else
+            findApps (a:c:xs)
+    else
+        a:(findApps (b:c:xs))
 ---------------------------------------------------------------
 
 data Lambda = Lam String Lambda
@@ -144,8 +88,11 @@ isApp l = case l of
     App _ _ -> True
     _ -> False
 
-fixpoint :: Lambda
-fixpoint = 
+lambda :: [Token] -> Lambda
+lambda = undefined --TODO
+
+fixpoint_lambda :: Lambda
+fixpoint_lambda = 
     Lam (
         "f"
     )(
@@ -179,6 +126,9 @@ fixpoint =
             )
         )
     )
+
+(!?) :: [a] -> Int -> Maybe a
+list !? n = if length list - 1 < n then Nothing else Just $ list !! n
 
 ---------------------------------------------------------------
 
@@ -303,114 +253,10 @@ emptyCircuit = Circuit [] (0, 0) []
 
 circuit :: Brujin -> Circuit
 circuit b = case b of
-    BLam b -> undefined
-    BApp b c -> undefined
+    BLam b -> undefined --TODO
+    BApp b c -> undefined --TODO
     BInd n -> 
         if n < 0 then
             Circuit [[QUEST, QUEST]] (2, 1) []
         else
             Circuit [[FULL, FULL]] (2, 1) [(0, n)]
-
----------------------------------------------------------------
-
--- data BoxStyle = EmptyStyle
---               | SingleStyle
---               | DoubleStyle
---               | BoldStyle
-
--- newtype StyleChars = StyleChars (Char, Char, Char, Char, Char, Char)
-
--- empty :: StyleChars
--- empty = StyleChars (' ', ' ', ' ', ' ', ' ', ' ')
-
--- single :: StyleChars
--- single = StyleChars ('┌', '┐', '└', '┘', '─', '│')
-
--- double :: StyleChars
--- double = StyleChars ('╔', '╗', '╚', '╝', '═', '║')
-
--- bold :: StyleChars
--- bold = StyleChars ('┏', '┓', '┗', '┛', '━', '┃')
-
--- getStyleChars :: BoxStyle -> StyleChars
--- getStyleChars b = case b of
---     EmptyStyle -> empty
---     SingleStyle -> single
---     DoubleStyle -> double
---     BoldStyle -> bold
-
--- fixpoint :: Circuit 
--- fixpoint = 
---     Box DoubleStyle (
---         Adjacent ( 
---             Box BoldStyle (
---                 Box DoubleStyle (
---                     Adjacent (
---                         Box BoldStyle (
---                             Adjacent (
---                                 Box BoldStyle (
---                                     Variable True
---                                 )
---                             )(
---                                 Variable True
---                             )
---                         )
---                     )(
---                         Variable True
---                     )
---                 )
---             )
---         )(
---             Box DoubleStyle (
---                 Adjacent (
---                     Box BoldStyle (
---                         Adjacent (
---                             Box BoldStyle (
---                                 Variable True
---                             )
---                         )(
---                             Variable True
---                         )
---                     )
---                 )(
---                     Variable True
---                 )
---             )
---         )
---     )
-
--- data Circuit = Box BoxStyle Circuit
---              | Adjacent Circuit Circuit
---              | Variable Bool
-
--- instance Show Circuit where
---     show c = case c of
---         Box s c -> 
---             let StyleChars (tl, tr, bl, br, h, v) = getStyleChars s
---                 lin = lines $ show c
---                 len = length $ head lin
---                 top_line = pure tl ++ replicate len h ++ pure tr
---                 bottom_line = pure bl ++ replicate len h ++ pure br
---                 added_sides = map (\s -> pure v ++ s ++ pure v) lin
---              in unlines $ pure top_line ++ added_sides ++ pure bottom_line
---         Adjacent c1 c2 -> 
---             let l1 = lines $ show c1 
---                 l2 = lines $ show c2
---                 p = length l1 - length l2 --p = padding needed on l2 (negative means padding needed on l1)
---              in case compare p 0 of
---                     EQ -> unlines $ zipWith (++) l1 l2
---                     GT -> unlines $ zipWith (++) l1 (pad p l2)
---                     LT -> unlines $ zipWith (++) (pad (abs p) l1) l2 --pad l1
---         Variable bound -> if bound then "██" else "??"
-
--- pad :: Int -> [String] -> [String] --pad bottom first
--- pad n lines = 
---     let padder = replicate (length $ head lines) ' '
---      in replicate (n `div` 2) padder ++ lines ++ replicate ((n `div` 2) + (n `mod` 2)) padder
-
--- circuit :: Brujin -> Circuit
--- circuit = undefined
-
---Stuff about Text vs String
---https://hackage.haskell.org/package/text-show
---http://dev.stephendiehl.com/hask/#text.builder
