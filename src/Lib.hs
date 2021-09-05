@@ -15,6 +15,12 @@ import GHC.IO.Encoding
 fixpoint_string :: String
 fixpoint_string = "\\f.(\\x.f (x x)) (\\x.f (x x))"
 
+example :: Circuit
+example = Circuit ([[EMPTY, FULL, EMPTY],[FULL, EMPTY, FULL],[EMPTY, FULL, EMPTY]]) (3, 3) []
+
+example2 :: Circuit
+example2 = Circuit ([[FULL,FULL,FULL,FULL,FULL],[FULL,FULL,FULL,FULL,FULL]]) (5, 2) [(0,1), (2,1), (4,1)]
+
 ---------------------------------------------------------------
 --Input/Output
 
@@ -22,7 +28,7 @@ fileAccess :: IO ()
 fileAccess = do
     setLocaleEncoding utf8
     input <- readFile "src/in.txt"
-    writeFile "src/out.txt" input
+    writeFile "src/out.txt" (show $ box True $ pad 2 3 4 5 example2)
 
 ---------------------------------------------------------------
 --Parsing Types and Instances
@@ -165,15 +171,15 @@ lambda :: String -> Either String Lambda
 lambda s = finish s $ stripWhitespace expr
 
 ---------------------------------------------------------------
---Expression Reduction Contexts
+--De Brujin Expression Conversion Contexts
 
 newtype Context = Context { unContext :: [(String, Int)] } deriving Show
 
 emptyContext :: Context
 emptyContext = Context []
 
-update :: String -> Context -> Context
-update s (Context c) = 
+updateContext :: String -> Context -> Context
+updateContext s (Context c) = 
     let c' = fmap (fmap succ) c 
      in Context $ case findIndex (\(s', _) -> s' == s) c of
             Just n -> take n c' <> [(s, 1)] <> drop (n + 1) c'
@@ -207,9 +213,12 @@ brujin = brujin' emptyContext
 
 brujin' :: Context -> Lambda -> Brujin
 brujin' c l = case l of
-    Lam s l -> BLam $ brujin' (update s c) l
+    Lam s l -> BLam $ brujin' (updateContext s c) l
     App a b -> BApp (brujin' c a) (brujin' c b)
     Var s -> BInd $ maybe (-1) id $ lookup s (unContext c)
+
+---------------------------------------------------------------
+--De Brujin Expression Reduction
 
 substitute :: Brujin -> Brujin -> Brujin
 substitute sub b = substitute' 0 sub b
@@ -245,7 +254,14 @@ data Symbol = EMPTY --Basic symbols
             | FULL
             | QUEST
 
-            | TLD --Generic box creation with index preservation
+            | TLS --Generic box creation with wire threading
+            | TRS
+            | BLS
+            | BRS
+            | VES
+            | HOS
+            | HOSS
+            | TLD 
             | TRD
             | BLD
             | BRD
@@ -267,7 +283,7 @@ data Symbol = EMPTY --Basic symbols
             deriving (Enum)
 
 symbols :: String
-symbols = " █?" <> "╔╗╚╝║═╪┏┓┗┛┃━┿" <> "┠╫┬┼"
+symbols = " █?" <> "┌┐└┘│─┼╔╗╚╝║═╪┏┓┗┛┃━┿" <> "┠╫┬┼●>"
 
 symbolToChar :: Symbol -> Char
 symbolToChar s = symbols !! fromEnum s
@@ -278,9 +294,75 @@ charToSymbol c = toEnum <$> findIndex (== c) symbols
 boxSymbols :: Bool -> (Symbol, Symbol, Symbol, Symbol, Symbol, Symbol, Symbol)
 boxSymbols isBold =
     if isBold then
-        (TLD, TRD, BLD, BRD, VED, HOD, HODS)
-    else
         (TLB, TRB, BLB, BRB, VEB, HOB, HOBS)
+    else
+        (TLD, TRD, BLD, BRD, VED, HOD, HODS)
+
+---------------------------------------------------------------
+--Circuit Manipulation Combinators
+
+shiftIndices :: Int -> [(Int, Int)] -> [(Int, Int)]
+shiftIndices n = fmap (\(pos, ind) -> (pos + n, ind))
+
+updateSymbol :: Int -> Int -> Symbol -> Circuit -> Circuit
+updateSymbol x y sym (Circuit g s i) = Circuit g' s i
+    where l = g !! y 
+          g' = take y g <> pure l' <> drop (y + 1) g
+          l' = take x l <> pure sym <> drop (x + 1) l
+
+pad :: Int -> Int -> Int -> Int -> Circuit -> Circuit
+pad top bottom left right = padRight right . padBottom bottom . padLeft left . padTop top
+
+padTop :: Int -> Circuit -> Circuit
+padTop n (Circuit g (x, y) i) = Circuit g' (x, y + n) i
+    where g' = replicate n t <> g
+          t = (\n -> if n `elem` (fst <$> i) then VES else EMPTY) <$> [0..(x-1)]
+
+padLeft :: Int -> Circuit -> Circuit
+padLeft n (Circuit g (x, y) i) = Circuit g' (x + n, y) i'
+    where g' = zipWith (<>) (replicate y $ replicate n EMPTY) g
+          i' = shiftIndices n i
+
+padRight :: Int -> Circuit -> Circuit
+padRight n (Circuit g (x, y) i) = Circuit g' (x + n, y) i
+    where g' = zipWith (<>) g (replicate y $ replicate n EMPTY)
+
+padBottom :: Int -> Circuit -> Circuit
+padBottom n (Circuit g (x, y) i) = Circuit g' (x, y + n) i
+    where g' = g <> (replicate n $ replicate x EMPTY)
+
+box :: Bool -> Circuit -> Circuit
+box isBold (Circuit g (x, y) i) = Circuit g' (x + 2, y + 2) i'
+    where i' = shiftIndices 1 i
+          (tl, tr, bl, br, ve, ho, hos) = boxSymbols isBold
+          g' = right $ left $ bottom $ top g
+          top gri = pure t <> gri
+          t = (\n -> if n `elem` (fst <$> i) then hos else ho) <$> [0..(x-1)]
+          bottom gri = gri <> (pure $ replicate x ho)
+          left gri = zipWith (<>) (pure (pure tl) <> replicate y (pure ve) <> pure (pure bl)) gri
+          right gri = zipWith (<>) gri (pure (pure tr) <> replicate y (pure ve) <> pure (pure br)) 
+
+append :: Int -> Circuit -> Circuit -> Circuit
+append n (Circuit g (x, y) i) c2 = Circuit g'' (x'', y'') i''
+    where (Circuit g' (x', y') i') = padLeft n c2
+          g'' = zipWith (<>) g g'
+          x'' = x + x'
+          y'' = y + y'
+          i'' = i ++ (shiftIndices x i') 
+
+valign :: Circuit -> Circuit -> (Circuit, Circuit) --Vertical alignment goes high in case of odd/even mismatch
+valign c1@(Circuit g (x, y) i) c2@(Circuit g' (x', y') i') = 
+    let ydiff = y - y'
+        (low, high) = half $ abs ydiff
+        c1' = pad low high 0 0 c1
+        c2' = pad low high 0 0 c2
+     in 
+        if ydiff > 0 then
+            (c1, c2')
+        else if ydiff < 0 then
+            (c1', c2)
+        else 
+            (c1, c2)
 
 ---------------------------------------------------------------
 --Circuits
@@ -303,33 +385,11 @@ circuit b = case b of
         else
             Circuit [[FULL, FULL]] (2, 1) [(0, n)]
 
-intHalfer :: Int -> (Int, Int) --returns (smaller, larger)
-intHalfer n = (n `div` 2, n `div` 2 + n `mod` 2)
+half :: Int -> (Int, Int) --returns (smaller, larger)
+half n = (n `div` 2, n `div` 2 + n `mod` 2)
 
-shiftIndices :: Int -> Circuit -> Circuit
-shiftIndices n c = undefined
+arrow :: Bool -> Circuit -> Circuit --adds application and lambda arrows
+arrow isApp c = undefined
 
-decrementIndices :: Circuit -> Circuit
-decrementIndices c = undefined
-
---seperates locations of all indices with a 1 from the circuit (probably best to iterate through the whole list rather than serperating since then you lose the ordering)
-validIndices :: Circuit -> ([Int], Circuit) 
-validIndices c = undefined
-
-pad :: Int -> Int -> Int -> Int -> Circuit -> Circuit
-pad top bottom left right c = undefined
-
-box :: Bool -> Circuit -> Circuit
-box isBold c = undefined
-
-append :: Int -> Circuit -> Circuit -> Circuit
-append n c1 c2 = undefined
-
-align :: Circuit -> Circuit -> (Circuit, Circuit)
-align c1 c2 = undefined
-
-apper :: Circuit -> Circuit --adds application arrow
-apper c = undefined
-
-lammer :: Circuit -> Circuit --adds abstraction arrow with wiring
-lammer c = undefined
+wires :: Circuit -> Circuit --adds wiring to padding before drawing a double-line box
+wires c = undefined
