@@ -241,11 +241,11 @@ normalize b = b : maybe [] normalize (reduce_normal b)
 ---------------------------------------------------------------
 --Circuit Symbols
 
-data Symbol = EMPTY
+data Symbol = EMPTY --Basic symbols
             | FULL
             | QUEST
 
-            | TLD
+            | TLD --Generic box creation with index preservation
             | TRD
             | BLD
             | BRD
@@ -260,13 +260,14 @@ data Symbol = EMPTY
             | HOB
             | HOBS
 
+            | APP --Special symbols for drawing arrows and wires
             | LAM
-            | APP
             | TEE
+            | PLUS
             deriving (Enum)
 
 symbols :: String
-symbols = " █?" <> "╔╗╚╝║═╪┏┓┗┛┃━┿" <> "╫┠┬"
+symbols = " █?" <> "╔╗╚╝║═╪┏┓┗┛┃━┿" <> "┠╫┬┼"
 
 symbolToChar :: Symbol -> Char
 symbolToChar s = symbols !! fromEnum s
@@ -311,7 +312,8 @@ shiftIndices n c = undefined
 decrementIndices :: Circuit -> Circuit
 decrementIndices c = undefined
 
-validIndices :: Circuit -> [Int] --returns locations of all indices with a 1
+--seperates locations of all indices with a 1 from the circuit (probably best to iterate through the whole list rather than serperating since then you lose the ordering)
+validIndices :: Circuit -> ([Int], Circuit) 
 validIndices c = undefined
 
 pad :: Int -> Int -> Int -> Int -> Circuit -> Circuit
