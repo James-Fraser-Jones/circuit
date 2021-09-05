@@ -10,6 +10,13 @@ import Control.Monad
 import GHC.IO.Encoding
 
 ---------------------------------------------------------------
+--Constants
+
+fixpoint_string :: String
+fixpoint_string = "\\f.(\\x.f (x x)) (\\x.f (x x))"
+
+---------------------------------------------------------------
+--Input/Output
 
 fileAccess :: IO ()
 fileAccess = do
@@ -18,52 +25,118 @@ fileAccess = do
     writeFile "src/out.txt" input
 
 ---------------------------------------------------------------
+--Parsing Types and Instances
 
-fixpoint_string :: String
-fixpoint_string = "\\f.(\\x.f (x x)) (\\x.f (x x))"
+newtype Parser a = Parser { parse :: String -> Either String (String, a) }
 
- --whitespace with specifically ')' '(' or some lowercase letters either side 
-data Token = White
-           | Lambda
-           | Dot
-           | Open
-           | Close
-           | Str String
-           deriving (Eq, Show)
+instance Functor Parser where
+    fmap = (=<<) . (.) return
 
---this is all kinda ugly, there's got to be a slightly nicer way :(
-token :: String -> [Token]
-token s = reverse $ token' s []
+instance Applicative Parser where
+    pure = return
+    (<*>) = ap
 
-token' :: String -> [Token] -> [Token]
-token' "" ts = ts
-token' (c:cs) [] = token' cs $ pure $ getToken c
-token' (c:cs) (t:ts) = token' cs $ case getToken c of
-    White -> if t == White then t:ts else White:t:ts
-    Str s -> case t of
-        Str s' -> (Str $ s' <> s):ts
-        t -> (Str s):t:ts
-    tok -> tok:t:ts
+instance Monad Parser where
+    return a = Parser $ \s -> Right (s, a)
+    pa >>= f = Parser $ \s -> case parse pa s of
+        Right (s', a) -> parse (f a) s'
+        Left err -> Left err
 
-getToken :: Char -> Token
-getToken c = case c of
-    '(' -> Open
-    ')' -> Close 
-    '\\' -> Lambda
-    '.' -> Dot
-    ' ' -> White
-    x -> Str $ pure x
+instance Alternative Parser where
+    empty = Parser $ \s -> Left "Parse Error: Failure Parser"
+    pa <|> pb = Parser $ \s -> case parse pa s of
+        Left err -> parse pb s
+        val -> val
 
-findApps :: String -> String
-findApps (a:b:c:xs) = 
-    if b == ' ' then
-        if ((a == ')' || a `elem` ['a'..'z']) && ((c == '(' || c `elem` ['a'..'z']) then
-            a:'@':(findApps (c:xs))
-        else
-            findApps (a:c:xs)
-    else
-        a:(findApps (b:c:xs))
 ---------------------------------------------------------------
+--Parsing Combinators
+
+satisfy :: (Char -> Bool) -> Parser Char
+satisfy predicate = Parser $ \s -> case s of
+    [] -> Left "Parse Error: Empty Input"
+    (x:xs) -> 
+        if predicate x then
+            Right (xs, x)
+        else
+            Left $ "Parse Error: Predicate Failed On Character: " <> pure x
+
+oneOf :: [Char] -> Parser Char
+oneOf s = satisfy (flip elem s)
+
+iden :: Parser String
+iden = some $ oneOf ['a'..'z']
+
+char :: Char -> Parser Char
+char c = satisfy (c ==)
+
+spaces :: Parser String
+spaces = many $ oneOf " \t\n\r"
+
+stripWhitespace :: Parser a -> Parser a
+stripWhitespace pa = do
+    spaces
+    a <- pa
+    spaces
+    return a
+
+parens :: Parser a -> Parser a
+parens pa = do
+    char '('
+    spaces
+    a <- pa
+    spaces
+    char ')'
+    return a
+
+chainl1 :: Parser a -> Parser (a -> a -> a) -> Parser a --magic to avoid problems with left recursion
+pa `chainl1` op = do 
+    a <- pa
+    rest a
+    where 
+        rest x = ( do 
+            f <- op
+            y <- pa
+            rest (f x y)
+            ) <|> return x
+
+finish :: String -> Parser a -> Either String a
+finish s pa = case parse pa s of
+    Right ("", a) -> Right a
+    Right (s, a) -> Left $ "Parse Error: Input Not Fully Consumed. Remaining: " <> s
+    Left err -> Left err
+
+---------------------------------------------------------------
+--Parsing Lambda Expressions
+
+expr :: Parser Lambda
+expr = term `chainl1` app
+
+app :: Parser (Lambda -> Lambda -> Lambda)
+app = do
+    spaces
+    return App
+
+term :: Parser Lambda
+term = lam <|> var <|> parens expr
+
+lam :: Parser Lambda
+lam = do
+    oneOf ['\\', 'λ']
+    spaces
+    s <- iden
+    spaces
+    char '.'
+    spaces
+    e <- expr
+    return $ Lam s e
+
+var :: Parser Lambda
+var = do
+    s <- iden
+    return $ Var s
+
+---------------------------------------------------------------
+--Lambda Expressions
 
 data Lambda = Lam String Lambda
             | App Lambda Lambda
@@ -88,49 +161,11 @@ isApp l = case l of
     App _ _ -> True
     _ -> False
 
-lambda :: [Token] -> Lambda
-lambda = undefined --TODO
-
-fixpoint_lambda :: Lambda
-fixpoint_lambda = 
-    Lam (
-        "f"
-    )(
-        App (
-            Lam (
-                "x"
-            )(
-                App (
-                    Var "f"
-                )(
-                    App (
-                        Var "x"
-                    )(
-                        Var "x"
-                    )
-                )
-            )
-        )(
-            Lam (
-                "x"
-            )(
-                App (
-                    Var "f"
-                )(
-                    App (
-                        Var "x"
-                    )(
-                        Var "x"
-                    )
-                )
-            )
-        )
-    )
-
-(!?) :: [a] -> Int -> Maybe a
-list !? n = if length list - 1 < n then Nothing else Just $ list !! n
+lambda :: String -> Either String Lambda
+lambda s = finish s $ stripWhitespace expr
 
 ---------------------------------------------------------------
+--Expression Reduction Contexts
 
 newtype Context = Context { unContext :: [(String, Int)] } deriving Show
 
@@ -145,6 +180,7 @@ update s (Context c) =
             Nothing -> (s, 1) : c'
 
 ---------------------------------------------------------------
+--De Brujin Expressions
 
 data Brujin = BLam Brujin
             | BApp Brujin Brujin
@@ -202,9 +238,8 @@ reduce_normal b = case b of
 normalize :: Brujin -> [Brujin]
 normalize b = b : maybe [] normalize (reduce_normal b)
 
---putStr $ unlines $ fmap show $ take 5 $ normalize $ brujin fixpoint
-
 ---------------------------------------------------------------
+--Circuit Symbols
 
 data Symbol = EMPTY
             | FULL
@@ -242,6 +277,7 @@ charToSymbol :: Char -> Maybe Symbol
 charToSymbol c = toEnum <$> findIndex (== c) symbols
 
 ---------------------------------------------------------------
+--Circuits
 
 data Circuit = Circuit { grid :: [[Symbol]], size :: (Int, Int), indices :: [(Int, Int)] }
 
@@ -253,8 +289,13 @@ emptyCircuit = Circuit [] (0, 0) []
 
 circuit :: Brujin -> Circuit
 circuit b = case b of
-    BLam b -> undefined --TODO
-    BApp b c -> undefined --TODO
+    BLam b -> undefined
+    BApp b c -> 
+        let
+            Circuit gb (xb, yb) ib = circuit b
+            Circuit gc (xc, yc) ic = circuit c
+         in
+            undefined
     BInd n -> 
         if n < 0 then
             Circuit [[QUEST, QUEST]] (2, 1) []
