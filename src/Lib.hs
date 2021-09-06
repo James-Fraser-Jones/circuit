@@ -10,7 +10,7 @@ import Control.Monad
 import GHC.IO.Encoding
 
 ---------------------------------------------------------------
---Constants
+--Example Constants
 
 fixpoint_string :: String
 fixpoint_string = "\\f.(\\x.f (x x)) (\\x.f (x x))"
@@ -20,6 +20,15 @@ example = Circuit ([[EMPTY, FULL, EMPTY],[FULL, EMPTY, FULL],[EMPTY, FULL, EMPTY
 
 example2 :: Circuit
 example2 = Circuit ([[FULL,FULL,FULL,FULL,FULL],[FULL,FULL,FULL,FULL,FULL]]) (5, 2) [(0,1), (2,1), (4,1)]
+
+exampleIndices :: [(Int, Int)]
+exampleIndices = [(0,3),(3,2),(4,0),(7,1),(8,4),(13,0),(16,9)]
+
+---------------------------------------------------------------
+--Generic Helpers
+
+findLast :: (a -> Bool) -> [a] -> Maybe a
+findLast p = foldl' (\b a -> if p a then Just a else b) Nothing
 
 ---------------------------------------------------------------
 --Input/Output
@@ -216,7 +225,7 @@ brujin' :: Context -> Lambda -> Brujin
 brujin' c l = case l of
     Lam s l -> BLam $ brujin' (updateContext s c) l
     App a b -> BApp (brujin' c a) (brujin' c b)
-    Var s -> BInd $ maybe (-1) id $ lookup s (unContext c)
+    Var s -> BInd $ maybe 0 id $ lookup s (unContext c)
 
 ---------------------------------------------------------------
 --De Brujin Expression Reduction
@@ -307,11 +316,18 @@ boxSymbols isBold =
 shiftIndices :: Int -> [(Int, Int)] -> [(Int, Int)]
 shiftIndices n = fmap (\(pos, ind) -> (pos + n, ind))
 
-updateSymbols :: Int -> Int -> [Symbol] -> Circuit -> Circuit
-updateSymbols x y sym (Circuit g s i) = Circuit g' s i
-    where l = g !! y 
-          g' = take y g <> pure l' <> drop (y + 1) g
-          l' = take x l <> sym <> drop (x + length sym) l
+updateSymbols :: Bool -> Int -> Int -> [Symbol] -> Circuit -> Circuit
+updateSymbols isHorizontal x y sym (Circuit g s i) = 
+    if isHorizontal then 
+        let l = g !! y 
+            l' = take x l <> sym <> drop (x + length sym) l
+            g' = take y g <> pure l' <> drop (y + 1) g
+         in Circuit g' s i
+    else 
+        let l = (!! x) <$> g  
+            l' = take y l <> sym <> drop (y + length sym) l
+            g' = zipWith (<>) (zipWith (<>) (take x <$> g) (pure <$> l')) ((drop $ x + 1) <$> g)
+         in Circuit g' s i
 
 pad :: Int -> Int -> Int -> Int -> Circuit -> Circuit
 pad top bottom left right = padRight right . padBottom bottom . padLeft left . padTop top
@@ -356,9 +372,8 @@ append n (Circuit g (x, y) i) c2 = Circuit g'' (x'', y'') i''
 valign :: Circuit -> Circuit -> (Circuit, Circuit) --Vertical alignment goes low in case of odd/even mismatch
 valign c1@(Circuit g (x, y) i) c2@(Circuit g' (x', y') i') = 
     let ydiff = y - y'
-        (low, high) = half $ abs ydiff
-        c1' = pad high low 0 0 c1
-        c2' = pad high low 0 0 c2
+        c1' = pad ((abs ydiff + 1) `div` 2) (abs ydiff `div` 2) 0 0 c1
+        c2' = pad ((abs ydiff + 1) `div` 2) (abs ydiff `div` 2) 0 0 c2
      in 
         if ydiff > 0 then
             (c1, c2')
@@ -383,22 +398,19 @@ circuit b = case b of
     BLam x -> arrow False $ box False $ wires $ pad 1 0 3 1 $ circuit x
     BApp x y -> uncurry (append 1) $ valign (arrow True $ box True $ pad 0 0 1 1 $ circuit y) $ circuit x
     BInd n -> 
-        if n < 0 then
+        if n < 1 then
             Circuit [[QUEST, QUEST]] (2, 1) []
         else
             Circuit [[FULL, FULL]] (2, 1) [(0, n)]
-
-half :: Int -> (Int, Int) --returns (smaller, larger)
-half n = (n `div` 2, n `div` 2 + n `mod` 2)
 
 arrow :: Bool -> Circuit -> Circuit --adds application and lambda arrows (arrows go high in case of even height)
 arrow isApp c =
     if isApp then
         let c2@(Circuit _ (x, y) _) = pad 0 0 0 3 c
-         in updateSymbols (x - length appArrow) ((y - 1) `div` 2) appArrow c2
+         in updateSymbols True (x - length appArrow) ((y - 1) `div` 2) appArrow c2
     else
         let c2@(Circuit _ (_, y) _) = pad 0 0 2 0 c
-         in updateSymbols 0 ((y - 1) `div` 2) lamArrow c2
+         in updateSymbols True 0 ((y - 1) `div` 2) lamArrow c2
 
 appArrow :: [Symbol]
 appArrow = [APP, HOS, HOS, ARROW]
@@ -407,4 +419,10 @@ lamArrow :: [Symbol]
 lamArrow = [ARROW, HOS, LAM, HOS]
 
 wires :: Circuit -> Circuit --adds wiring to padding before drawing a double-line box
-wires = id
+wires c@(Circuit g (x, y) i) =
+    let i' = fmap (fmap pred) i --decrement all indices
+     in if isJust $ findLast (\(pos, ind) -> ind == 0) i' then
+            undefined
+        else 
+            let Circuit g' _ _ = updateSymbols True 1 ((y - 1) `div` 2) [DOT] c
+             in Circuit g' (x, y) i'
