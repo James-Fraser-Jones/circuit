@@ -1,5 +1,5 @@
 module Lib
-    ( fileAccess
+    ( reduceCircuit
     ) where
 
 import Data.Maybe
@@ -10,21 +10,6 @@ import Control.Monad
 import GHC.IO.Encoding
 
 ---------------------------------------------------------------
---Example Constants
-
-fixpoint_string :: String
-fixpoint_string = "\\f.(\\x.f (x x)) (\\x.f (x x))"
-
-example :: Circuit
-example = Circuit ([[EMPTY, FULL, EMPTY],[FULL, EMPTY, FULL],[EMPTY, FULL, EMPTY]]) (3, 3) []
-
-example2 :: Circuit
-example2 = Circuit ([[FULL,FULL,FULL,FULL,FULL],[FULL,FULL,FULL,FULL,FULL]]) (5, 2) [(0,1), (2,1), (4,1)]
-
-exampleIndices :: [(Int, Int)]
-exampleIndices = [(0,3),(3,2),(4,0),(7,1),(8,4),(13,0),(16,9)]
-
----------------------------------------------------------------
 --Generic Helpers
 
 findLast :: (a -> Bool) -> [a] -> Maybe a
@@ -33,11 +18,13 @@ findLast p = foldl' (\b a -> if p a then Just a else b) Nothing
 ---------------------------------------------------------------
 --Input/Output
 
-fileAccess :: IO ()
-fileAccess = do
+reduceCircuit :: Int -> IO ()
+reduceCircuit limit = do
     setLocaleEncoding utf8
     input <- readFile "src/in.txt"
-    let output = either id (show . circuit . brujin) (lambda input)
+    let parse = lambda input
+        getResults = join . intersperse "\n\n" . fmap show . fmap circuit . take limit . normalize . brujin
+        output = either id getResults parse 
     writeFile "src/out.txt" output
 
 ---------------------------------------------------------------
@@ -421,8 +408,30 @@ lamArrow = [ARROW, HOS, LAM, HOS]
 wires :: Circuit -> Circuit --adds wiring to padding before drawing a double-line box
 wires c@(Circuit g (x, y) i) =
     let i' = fmap (fmap pred) i --decrement all indices
-     in if isJust $ findLast (\(pos, ind) -> ind == 0) i' then
-            undefined
-        else 
-            let Circuit g' _ _ = updateSymbols True 1 ((y - 1) `div` 2) [DOT] c
+     in case findLast (\(pos, ind) -> ind == 0) i' of
+        Just (lastPos, _) ->
+            let c2 = updateSymbols False 1 0 (arm y) c
+                Circuit g' _ _ = updateSymbols True 2 0 (straight 2 lastPos i') c2
+                i'' = filter (\(pos, ind) -> ind > 0) i'
+             in Circuit g' (x, y) i''
+        Nothing ->
+            let Circuit g' _ _ = updateSymbols True 1 ((y - 1) `div` 2) (pure DOT) c
              in Circuit g' (x, y) i'
+            
+armLength :: Int -> Int
+armLength n = ((n - 1) `div` 2) - 1
+
+arm :: Int -> [Symbol]
+arm n = if armLength n == -1 then pure HOS else pure TLS <> replicate (armLength n) VES <> pure BRS
+
+straight :: Int -> Int -> [(Int, Int)] -> [Symbol]
+straight start last indices =
+    let handlePos n = 
+            case find (\(pos, ind) -> pos == n) indices of
+                Just (pos, ind) -> 
+                    if ind == 0 then
+                        TEE
+                    else
+                        PLUS
+                Nothing -> HOS
+     in fmap handlePos [start..last-1] <> pure TRS
