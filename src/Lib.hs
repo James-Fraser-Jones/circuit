@@ -28,7 +28,8 @@ fileAccess :: IO ()
 fileAccess = do
     setLocaleEncoding utf8
     input <- readFile "src/in.txt"
-    writeFile "src/out.txt" (show $ box True $ pad 2 3 4 5 example2)
+    let output = either id (show . circuit . brujin) (lambda input)
+    writeFile "src/out.txt" output
 
 ---------------------------------------------------------------
 --Parsing Types and Instances
@@ -280,6 +281,8 @@ data Symbol = EMPTY --Basic symbols
             | LAM
             | TEE
             | PLUS
+            | DOT
+            | ARROW
             deriving (Enum)
 
 symbols :: String
@@ -304,11 +307,11 @@ boxSymbols isBold =
 shiftIndices :: Int -> [(Int, Int)] -> [(Int, Int)]
 shiftIndices n = fmap (\(pos, ind) -> (pos + n, ind))
 
-updateSymbol :: Int -> Int -> Symbol -> Circuit -> Circuit
-updateSymbol x y sym (Circuit g s i) = Circuit g' s i
+updateSymbols :: Int -> Int -> [Symbol] -> Circuit -> Circuit
+updateSymbols x y sym (Circuit g s i) = Circuit g' s i
     where l = g !! y 
           g' = take y g <> pure l' <> drop (y + 1) g
-          l' = take x l <> pure sym <> drop (x + 1) l
+          l' = take x l <> sym <> drop (x + length sym) l
 
 pad :: Int -> Int -> Int -> Int -> Circuit -> Circuit
 pad top bottom left right = padRight right . padBottom bottom . padLeft left . padTop top
@@ -347,15 +350,15 @@ append n (Circuit g (x, y) i) c2 = Circuit g'' (x'', y'') i''
     where (Circuit g' (x', y') i') = padLeft n c2
           g'' = zipWith (<>) g g'
           x'' = x + x'
-          y'' = y + y'
+          y'' = max y y'
           i'' = i ++ (shiftIndices x i') 
 
-valign :: Circuit -> Circuit -> (Circuit, Circuit) --Vertical alignment goes high in case of odd/even mismatch
+valign :: Circuit -> Circuit -> (Circuit, Circuit) --Vertical alignment goes low in case of odd/even mismatch
 valign c1@(Circuit g (x, y) i) c2@(Circuit g' (x', y') i') = 
     let ydiff = y - y'
         (low, high) = half $ abs ydiff
-        c1' = pad low high 0 0 c1
-        c2' = pad low high 0 0 c2
+        c1' = pad high low 0 0 c1
+        c2' = pad high low 0 0 c2
      in 
         if ydiff > 0 then
             (c1, c2')
@@ -377,8 +380,8 @@ emptyCircuit = Circuit [] (0, 0) []
 
 circuit :: Brujin -> Circuit
 circuit b = case b of
-    BLam b -> undefined
-    BApp b c -> undefined
+    BLam x -> arrow False $ box False $ wires $ pad 1 0 3 1 $ circuit x
+    BApp x y -> uncurry (append 1) $ valign (arrow True $ box True $ pad 0 0 1 1 $ circuit y) $ circuit x
     BInd n -> 
         if n < 0 then
             Circuit [[QUEST, QUEST]] (2, 1) []
@@ -388,8 +391,20 @@ circuit b = case b of
 half :: Int -> (Int, Int) --returns (smaller, larger)
 half n = (n `div` 2, n `div` 2 + n `mod` 2)
 
-arrow :: Bool -> Circuit -> Circuit --adds application and lambda arrows
-arrow isApp c = undefined
+arrow :: Bool -> Circuit -> Circuit --adds application and lambda arrows (arrows go high in case of even height)
+arrow isApp c =
+    if isApp then
+        let c2@(Circuit _ (x, y) _) = pad 0 0 0 3 c
+         in updateSymbols (x - length appArrow) ((y - 1) `div` 2) appArrow c2
+    else
+        let c2@(Circuit _ (_, y) _) = pad 0 0 2 0 c
+         in updateSymbols 0 ((y - 1) `div` 2) lamArrow c2
+
+appArrow :: [Symbol]
+appArrow = [APP, HOS, HOS, ARROW]
+
+lamArrow :: [Symbol]
+lamArrow = [ARROW, HOS, LAM, HOS]
 
 wires :: Circuit -> Circuit --adds wiring to padding before drawing a double-line box
-wires c = undefined
+wires = id
