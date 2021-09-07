@@ -1,1 +1,1 @@
-(λx. λy. (λs. λz. x s (y s z))) (λs. λz. s (s z)) (λs. λz. s z)
+(λg. λf. λx. g (f x)) (λf. λx. λy. f y x) (λf. λx. λy. f y x)

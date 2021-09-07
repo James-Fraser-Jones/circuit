@@ -11,16 +11,17 @@ import Control.Monad
 import GHC.IO.Encoding
 
 ---------------------------------------------------------------
+--Examples
+
+example = "(λg. λf. λx. g (f x)) (λf. λx. λy. f y x) (λf. λx. λy. f y x)"               --flip . flip = ($)
+example2 = "(λx. λy. (λs. λz. x s (y s z))) (λs. λz. s (s z)) (λs. λz. s (s (s z)))"    --2 + 3 = 5
+example3 = "(λf. (λx. f (x x)) (λx. f (x x))) (λx. x)"                                  --fixpoint combinator applied to id
+
+---------------------------------------------------------------
 --Generic Helpers
 
 findLast :: (a -> Bool) -> [a] -> Maybe a
 findLast p = foldl' (\b a -> if p a then Just a else b) Nothing
-
-example = "(λx. λy. λs. λz. x s (y s z)) (λs. λz. s (s z)) (λs. λz. s z)"
-example2 = "(λx. λy. λs. λz. x s (y s z)) (λs. λz. s (s z))"
-example3 = "λw. λt. λz. λl. (λx. λy. z x (λu. u x)) (λx. w x)"
-example4 = BLam (BApp (BApp (BInd 3) (BInd 1)) (BLam (BApp (BInd 0) (BInd 2))))
-example5 = BLam (BApp (BInd 4) (BInd 0))
 
 ---------------------------------------------------------------
 --Input/Output
@@ -388,8 +389,8 @@ append n (Circuit g (x, y) i) c2 = Circuit g'' (x'', y'') i''
           i'' = i ++ (shiftIndices x i') 
 
 --Vertical alignment goes high in case of odd/even mismatch
---If box which needs padding is even height and other box is odd height, both boxes must be padded 1 on the top
---This must happen before the app arrow is drawn on the left box
+--If first circuit is odd height and second circuit is even height and second circuit is shorter then both boxes must be padded 1 extra on top
+--This must happen before the app arrow is drawn on the first circuit
 valign :: Circuit -> Circuit -> (Circuit, Circuit) 
 valign c1@(Circuit g (x, y) i) c2@(Circuit g' (x', y') i') = 
     let ydiff = y - y'
@@ -402,10 +403,7 @@ valign c1@(Circuit g (x, y) i) c2@(Circuit g' (x', y') i') =
             else
                 (c1, c2')
         else if ydiff < 0 then
-            if even y && odd y' then
-                (pad 1 0 0 0 c1', pad 1 0 0 0 c2)
-            else
-                (c1', c2)
+            (c1', c2)    
         else 
             (c1, c2)
 
