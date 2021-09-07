@@ -10,12 +10,19 @@ import Control.Monad
 
 import GHC.IO.Encoding
 
+--TODO:
+--Constants
+--Conversion from Brujin back to Lambda with canonical naming scheme which preserves names through beta reduction
+--More reduction strategies
+--Eta reduction?
+--Web host it
+
 ---------------------------------------------------------------
 --Examples
 
 example = "(λg. λf. λx. g (f x)) (λf. λx. λy. f y x) (λf. λx. λy. f y x)"               --flip . flip = ($)
 example2 = "(λx. λy. (λs. λz. x s (y s z))) (λs. λz. s (s z)) (λs. λz. s (s (s z)))"    --2 + 3 = 5
-example3 = "(λf. (λx. f (x x)) (λx. f (x x))) (λx. x)"                                  --fixpoint combinator applied to id
+example3 = "(λy. λid. y id) (λf. (λx. f (x x)) (λx. f (x x))) (λx. x)"                  --fixpoint combinator applied to id
 
 ---------------------------------------------------------------
 --Generic Helpers
