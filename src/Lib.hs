@@ -3,6 +3,7 @@ module Lib
     ) where
 
 import Data.Maybe
+import Data.Either
 import Data.List
 import Control.Applicative
 import Control.Monad
@@ -15,6 +16,12 @@ import GHC.IO.Encoding
 findLast :: (a -> Bool) -> [a] -> Maybe a
 findLast p = foldl' (\b a -> if p a then Just a else b) Nothing
 
+example = "(λx. λy. λs. λz. x s (y s z)) (λs. λz. s (s z)) (λs. λz. s z)"
+example2 = "(λx. λy. λs. λz. x s (y s z)) (λs. λz. s (s z))"
+example3 = "λw. λt. λz. λl. (λx. λy. z x (λu. u x)) (λx. w x)"
+example4 = BLam (BApp (BApp (BInd 3) (BInd 1)) (BLam (BApp (BInd 0) (BInd 2))))
+example5 = BLam (BApp (BInd 4) (BInd 0))
+
 ---------------------------------------------------------------
 --Input/Output
 
@@ -22,9 +29,9 @@ reduceCircuit :: Int -> IO ()
 reduceCircuit limit = do
     setLocaleEncoding utf8
     input <- readFile "src/in.txt"
-    let parse = lambda input
-        getResults = join . intersperse "\n\n" . fmap show . fmap circuit . take limit . normalize . brujin
-        output = either id getResults parse 
+    let b = lambda input >>= brujin
+        getResults = join . intersperse "\n\n" . fmap (show . circuit) . take limit . normalize
+        output = either id getResults b 
     writeFile "src/out.txt" output
 
 ---------------------------------------------------------------
@@ -177,10 +184,10 @@ emptyContext = Context []
 
 updateContext :: String -> Context -> Context
 updateContext s (Context c) = 
-    let c' = fmap (fmap succ) c 
+    let c' = fmap (fmap succ) c                                 --increment all indices currently in the context
      in Context $ case findIndex (\(s', _) -> s' == s) c of
-            Just n -> take n c' <> [(s, 1)] <> drop (n + 1) c'
-            Nothing -> (s, 1) : c'
+            Just n -> take n c' <> [(s, 0)] <> drop (n + 1) c'  --if string was found, reset corresponding index to 0
+            Nothing -> (s, 0) : c'                              --if not, add it to the context
 
 ---------------------------------------------------------------
 --De Brujin Expressions
@@ -205,37 +212,62 @@ instance Show Brujin where
         BApp b c -> (if isBLam b then bracket else id) (show b) <> " " <> (if isBLam c || isBApp c then bracket else id) (show c)
         BInd n -> show n
 
-brujin :: Lambda -> Brujin
+brujin :: Lambda -> Either String Brujin
 brujin = brujin' emptyContext
 
-brujin' :: Context -> Lambda -> Brujin
-brujin' c l = case l of
-    Lam s l -> BLam $ brujin' (updateContext s c) l
-    App a b -> BApp (brujin' c a) (brujin' c b)
-    Var s -> BInd $ maybe 0 id $ lookup s (unContext c)
+brujin' :: Context -> Lambda -> Either String Brujin
+brujin' (Context c) l = case l of
+    Lam s l -> BLam <$> brujin' (updateContext s $ Context c) l
+    App a b -> BApp <$> (brujin' (Context c) a) <*> (brujin' (Context c) b)
+    Var s -> maybe (Left $ "Scope Error: Variable: " <> s <> " not In Scope.") (Right . BInd) (lookup s c)
 
 ---------------------------------------------------------------
 --De Brujin Expression Reduction
 
-substitute :: Brujin -> Brujin -> Brujin
-substitute sub b = substitute' 0 sub b
+modifyIndices :: (Int -> Int -> Brujin) -> Brujin -> Brujin
+modifyIndices = modifyIndices' 0
 
-substitute' :: Int -> Brujin -> Brujin -> Brujin
-substitute' n sub b = case b of
-    BLam b' -> BLam $ substitute' (succ n) sub b'
-    BApp b1 b2 -> BApp (substitute' n sub b1) (substitute' n sub b2)
-    BInd n' -> if n' == n then sub else BInd n'
+modifyIndices' :: Int -> (Int -> Int -> Brujin) -> Brujin -> Brujin
+modifyIndices' d f b = case b of
+    BLam b' -> BLam $ modifyIndices' (d + 1) f b'
+    BApp b1 b2 -> BApp (modifyIndices' d f b1) (modifyIndices' d f b2)
+    BInd n -> f d n
 
-decrement :: Brujin -> Brujin
-decrement b = case b of
-    BLam b' -> BLam $ decrement b'
-    BApp b1 b2 -> BApp (decrement b1) (decrement b2)
-    BInd n -> BInd $ pred n
+--mark substitution sites with -1 and decrement free variables of function body
+prepare :: Int -> Int -> Brujin
+prepare depth index = BInd $
+    if index == depth then
+        -1
+    else if isFree depth index then
+        index - 1
+    else
+        index
+
+--decrement free variables by n
+increment :: Int -> Int -> Int -> Brujin
+increment n depth index = BInd $
+    if isFree depth index then
+        index + n
+    else
+        index
+
+substitute :: Brujin -> Int -> Int -> Brujin
+substitute arg depth index = 
+    if index == -1 then
+        modifyIndices (increment depth) arg 
+    else 
+        BInd index
+
+beta :: Brujin -> Brujin -> Brujin
+beta body arg = modifyIndices (substitute arg) (modifyIndices prepare body)
+
+isFree :: Int -> Int -> Bool
+isFree depth index = index >= depth 
 
 reduce_normal :: Brujin -> Maybe Brujin
 reduce_normal b = case b of
-    BApp (BLam b1) b2 -> Just $ substitute b2 $ decrement b1    --reduce outer before inner
-    BApp b1 b2 -> case reduce_normal b1 of                      --reduce left values before right ones
+    BApp (BLam b1) b2 -> Just $ beta b1 b2          --reduce outer before inner
+    BApp b1 b2 -> case reduce_normal b1 of          --reduce left values before right ones
         Just b' -> Just $ BApp b' b2
         Nothing -> BApp b1 <$> reduce_normal b2
     BLam b' -> BLam <$> reduce_normal b'
@@ -243,7 +275,6 @@ reduce_normal b = case b of
 
 normalize :: Brujin -> [Brujin]
 normalize b = b : maybe [] normalize (reduce_normal b)
-
 ---------------------------------------------------------------
 --Circuit Symbols
 
@@ -356,16 +387,25 @@ append n (Circuit g (x, y) i) c2 = Circuit g'' (x'', y'') i''
           y'' = max y y'
           i'' = i ++ (shiftIndices x i') 
 
-valign :: Circuit -> Circuit -> (Circuit, Circuit) --Vertical alignment goes low in case of odd/even mismatch
+--Vertical alignment goes high in case of odd/even mismatch
+--If box which needs padding is even height and other box is odd height, both boxes must be padded 1 on the top
+--This must happen before the app arrow is drawn on the left box
+valign :: Circuit -> Circuit -> (Circuit, Circuit) 
 valign c1@(Circuit g (x, y) i) c2@(Circuit g' (x', y') i') = 
     let ydiff = y - y'
-        c1' = pad ((abs ydiff + 1) `div` 2) (abs ydiff `div` 2) 0 0 c1
-        c2' = pad ((abs ydiff + 1) `div` 2) (abs ydiff `div` 2) 0 0 c2
+        c1' = pad (abs ydiff `div` 2) ((abs ydiff + 1) `div` 2) 0 0 c1
+        c2' = pad (abs ydiff `div` 2) ((abs ydiff + 1) `div` 2) 0 0 c2
      in 
         if ydiff > 0 then
-            (c1, c2')
+            if even y' && odd y then
+                (pad 1 0 0 0 c1, pad 1 0 0 0 c2')
+            else
+                (c1, c2')
         else if ydiff < 0 then
-            (c1', c2)
+            if even y && odd y' then
+                (pad 1 0 0 0 c1', pad 1 0 0 0 c2)
+            else
+                (c1', c2)
         else 
             (c1, c2)
 
@@ -383,12 +423,12 @@ emptyCircuit = Circuit [] (0, 0) []
 circuit :: Brujin -> Circuit
 circuit b = case b of
     BLam x -> arrow False $ box False $ wires $ pad 1 0 3 1 $ circuit x
-    BApp x y -> uncurry (append 1) $ valign (arrow True $ box True $ pad 0 0 1 1 $ circuit y) $ circuit x
-    BInd n -> 
-        if n < 1 then
-            Circuit [[QUEST, QUEST]] (2, 1) []
-        else
-            Circuit [[FULL, FULL]] (2, 1) [(0, n)]
+    BApp x y -> 
+        let y' = box True $ pad 0 0 1 1 $ circuit y
+            x' = circuit x
+            (y'', x'') = valign y' x'
+         in append 1 (arrow True y'') x'' 
+    BInd n -> Circuit [[FULL, FULL]] (2, 1) [(0, n)]
 
 arrow :: Bool -> Circuit -> Circuit --adds application and lambda arrows (arrows go high in case of even height)
 arrow isApp c =
@@ -408,11 +448,11 @@ lamArrow = [ARROW, HOS, LAM, HOS]
 wires :: Circuit -> Circuit --adds wiring to padding before drawing a double-line box
 wires c@(Circuit g (x, y) i) =
     let i' = fmap (fmap pred) i --decrement all indices
-     in case findLast (\(pos, ind) -> ind == 0) i' of
+     in case findLast (\(pos, ind) -> ind == -1) i' of
         Just (lastPos, _) ->
             let c2 = updateSymbols False 1 0 (arm y) c
                 Circuit g' _ _ = updateSymbols True 2 0 (straight 2 lastPos i') c2
-                i'' = filter (\(pos, ind) -> ind > 0) i'
+                i'' = filter (\(pos, ind) -> ind >= 0) i'
              in Circuit g' (x, y) i''
         Nothing ->
             let Circuit g' _ _ = updateSymbols True 1 ((y - 1) `div` 2) (pure DOT) c
@@ -429,7 +469,7 @@ straight start last indices =
     let handlePos n = 
             case find (\(pos, ind) -> pos == n) indices of
                 Just (pos, ind) -> 
-                    if ind == 0 then
+                    if ind == -1 then
                         TEE
                     else
                         PLUS
