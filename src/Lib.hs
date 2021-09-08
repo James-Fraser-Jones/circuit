@@ -11,9 +11,8 @@ import Control.Monad
 import GHC.IO.Encoding
 
 --TODO:
---Constants
---Conversion from Brujin back to Lambda with canonical naming scheme which preserves names through beta reduction
---More reduction strategies
+--Conversion from Brujin back to Lambda with canonical naming scheme which preserves names through beta reduction?
+--More reduction strategies?
 --Eta reduction?
 --Web host it
 
@@ -22,7 +21,7 @@ import GHC.IO.Encoding
 
 example = "(λg. λf. λx. g (f x)) (λf. λx. λy. f y x) (λf. λx. λy. f y x)"               --flip . flip = ($)
 example2 = "(λx. λy. (λs. λz. x s (y s z))) (λs. λz. s (s z)) (λs. λz. s (s (s z)))"    --2 + 3 = 5
-example3 = "(λy. λid. y id) (λf. (λx. f (x x)) (λx. f (x x))) (λx. x)"                  --fixpoint combinator applied to id
+example3 = "(λf. (λx. f (x x)) (λx. f (x x))) (λx. x)"                                  --fixpoint combinator applied to id
 
 ---------------------------------------------------------------
 --Generic Helpers
@@ -61,7 +60,7 @@ instance Monad Parser where
         Left err -> Left err
 
 instance Alternative Parser where
-    empty = Parser $ \s -> Left "Parse Error: Failure Parser"
+    empty = Parser $ \s -> Left "Parse Error: Reached Alternative.Empty parser"
     pa <|> pb = Parser $ \s -> case parse pa s of
         Left err -> parse pb s
         val -> val
@@ -71,18 +70,18 @@ instance Alternative Parser where
 
 satisfy :: (Char -> Bool) -> Parser Char
 satisfy predicate = Parser $ \s -> case s of
-    [] -> Left "Parse Error: Empty Input"
+    [] -> Left "Parse Error: \"satisfy\" parser given empty input"
     (x:xs) -> 
         if predicate x then
             Right (xs, x)
         else
-            Left $ "Parse Error: Predicate Failed On Character: " <> pure x
+            Left $ "Parse Error: \"satisfy\" parser predicate failed on character \'" <> pure x <> "\'"
 
 oneOf :: [Char] -> Parser Char
 oneOf s = satisfy (flip elem s)
 
 iden :: Parser String
-iden = some $ oneOf ['a'..'z']
+iden = many $ oneOf $ ['a'..'z'] <> ['A'..'Z']
 
 char :: Char -> Parser Char
 char c = satisfy (c ==)
@@ -120,7 +119,7 @@ pa `chainl1` op = do
 finish :: String -> Parser a -> Either String a
 finish s pa = case parse pa s of
     Right ("", a) -> Right a
-    Right (s, a) -> Left $ "Parse Error: Input Not Fully Consumed. Remaining: " <> s
+    Right (s, a) -> Left $ "Parse Error: Some input failed to parse \"" <> s <> "\""
     Left err -> Left err
 
 ---------------------------------------------------------------
@@ -135,23 +134,30 @@ app = do
     return App
 
 term :: Parser Lambda
-term = lam <|> var <|> parens expr
+term = lam <|> (Var <$> var) <|> con <|> parens expr
 
 lam :: Parser Lambda
 lam = do
     oneOf ['\\', 'λ']
     spaces
-    s <- iden
+    s <- var
     spaces
     char '.'
     spaces
     e <- expr
     return $ Lam s e
 
-var :: Parser Lambda
+var :: Parser String
 var = do
+    c <- oneOf $ ['a'..'z']
     s <- iden
-    return $ Var s
+    return $ c:s
+
+con :: Parser Lambda
+con = do
+    c <- oneOf $ ['A'..'Z']
+    s <- iden
+    return $ Con $ c:s
 
 ---------------------------------------------------------------
 --Lambda Expressions
@@ -159,12 +165,14 @@ var = do
 data Lambda = Lam String Lambda
             | App Lambda Lambda
             | Var String
+            | Con String
 
 instance Show Lambda where
     show l = case l of
         Lam s l -> "\\" <> s <> "." <> show l
         App a b -> (if isLam a then bracket else id) (show a) <> " " <> (if isLam b || isApp b then bracket else id) (show b)
         Var s -> s
+        Con s -> s
 
 bracket :: String -> String
 bracket s = "(" <> s <> ")"
@@ -203,6 +211,7 @@ updateContext s (Context c) =
 data Brujin = BLam Brujin
             | BApp Brujin Brujin
             | BInd Int
+            | BCon String
 
 isBLam :: Brujin -> Bool
 isBLam b = case b of
@@ -219,6 +228,7 @@ instance Show Brujin where
         BLam b -> "\\ " <> show b
         BApp b c -> (if isBLam b then bracket else id) (show b) <> " " <> (if isBLam c || isBApp c then bracket else id) (show c)
         BInd n -> show n
+        BCon s -> s
 
 brujin :: Lambda -> Either String Brujin
 brujin = brujin' emptyContext
@@ -227,7 +237,8 @@ brujin' :: Context -> Lambda -> Either String Brujin
 brujin' (Context c) l = case l of
     Lam s l -> BLam <$> brujin' (updateContext s $ Context c) l
     App a b -> BApp <$> (brujin' (Context c) a) <*> (brujin' (Context c) b)
-    Var s -> maybe (Left $ "Scope Error: Variable: " <> s <> " not In Scope.") (Right . BInd) (lookup s c)
+    Var s -> maybe (Left $ "Scope Error: Variable \"" <> s <> "\" not in scope") (Right . BInd) (lookup s c)
+    Con s -> Right $ BCon s
 
 ---------------------------------------------------------------
 --De Brujin Expression Reduction
@@ -240,6 +251,7 @@ modifyIndices' d f b = case b of
     BLam b' -> BLam $ modifyIndices' (d + 1) f b'
     BApp b1 b2 -> BApp (modifyIndices' d f b1) (modifyIndices' d f b2)
     BInd n -> f d n
+    BCon s -> BCon s
 
 --mark substitution sites with -1 and decrement free variables of function body
 prepare :: Int -> Int -> Brujin
@@ -280,61 +292,53 @@ reduce_normal b = case b of
         Nothing -> BApp b1 <$> reduce_normal b2
     BLam b' -> BLam <$> reduce_normal b'
     BInd n -> Nothing
+    BCon s -> Nothing
 
 normalize :: Brujin -> [Brujin]
 normalize b = b : maybe [] normalize (reduce_normal b)
 ---------------------------------------------------------------
 --Circuit Symbols
 
-data Symbol = EMPTY --Basic symbols
-            | FULL
-            | QUEST
+type Symbol = Char
 
-            | TLS --Generic box creation with wire threading
-            | TRS
-            | BLS
-            | BRS
-            | VES
-            | HOS
-            | HOSS
-            | TLD 
-            | TRD
-            | BLD
-            | BRD
-            | VED
-            | HOD
-            | HODS
-            | TLB
-            | TRB
-            | BLB
-            | BRB
-            | VEB
-            | HOB
-            | HOBS
+space = ' '
+full = '█'
+appa = '┠'
+lama = '╫'
+tee = '┬'
+dot = '●'
+arr = '>'
 
-            | APP --Special symbols for drawing arrows and wires
-            | LAM
-            | TEE
-            | PLUS
-            | DOT
-            | ARROW
-            deriving (Enum)
+tls = '┌'
+trs = '┐'
+bls = '└'
+brs = '┘'
+ves = '│'
+hos = '─'
+hoss = '┼'
 
-symbols :: String
-symbols = " █?" <> "┌┐└┘│─┼╔╗╚╝║═╪┏┓┗┛┃━┿" <> "┠╫┬┼●>"
+tld = '╔'
+trd = '╗'
+bld = '╚'
+brd = '╝'
+ved = '║'
+hod = '═'
+hods = '╪'
 
-symbolToChar :: Symbol -> Char
-symbolToChar s = symbols !! fromEnum s
-
-charToSymbol :: Char -> Maybe Symbol
-charToSymbol c = toEnum <$> findIndex (== c) symbols
+tlb = '┏'
+trb = '┓'
+blb = '┗'
+brb = '┛'
+veb = '┃'
+hob = '━'
+hobs = '┿'
 
 boxSymbols :: Bool -> (Symbol, Symbol, Symbol, Symbol, Symbol, Symbol, Symbol)
 boxSymbols isBold =
     if isBold then
-        (TLB, TRB, BLB, BRB, VEB, HOB, HOBS)
+        (tlb, trb, blb, brb, veb, hob, hobs)
     else
-        (TLD, TRD, BLD, BRD, VED, HOD, HODS)
+        (tld, trd, bld, brd, ved, hod, hods)
 
 ---------------------------------------------------------------
 --Circuit Manipulation Combinators
@@ -361,20 +365,20 @@ pad top bottom left right = padRight right . padBottom bottom . padLeft left . p
 padTop :: Int -> Circuit -> Circuit
 padTop n (Circuit g (x, y) i) = Circuit g' (x, y + n) i
     where g' = replicate n t <> g
-          t = (\n -> if n `elem` (fst <$> i) then VES else EMPTY) <$> [0..(x-1)]
+          t = (\n -> if n `elem` (fst <$> i) then ves else space) <$> [0..(x-1)]
 
 padLeft :: Int -> Circuit -> Circuit
 padLeft n (Circuit g (x, y) i) = Circuit g' (x + n, y) i'
-    where g' = zipWith (<>) (replicate y $ replicate n EMPTY) g
+    where g' = zipWith (<>) (replicate y $ replicate n space) g
           i' = shiftIndices n i
 
 padRight :: Int -> Circuit -> Circuit
 padRight n (Circuit g (x, y) i) = Circuit g' (x + n, y) i
-    where g' = zipWith (<>) g (replicate y $ replicate n EMPTY)
+    where g' = zipWith (<>) g (replicate y $ replicate n space)
 
 padBottom :: Int -> Circuit -> Circuit
 padBottom n (Circuit g (x, y) i) = Circuit g' (x, y + n) i
-    where g' = g <> (replicate n $ replicate x EMPTY)
+    where g' = g <> (replicate n $ replicate x space)
 
 box :: Bool -> Circuit -> Circuit
 box isBold (Circuit g (x, y) i) = Circuit g' (x + 2, y + 2) i'
@@ -420,7 +424,7 @@ valign c1@(Circuit g (x, y) i) c2@(Circuit g' (x', y') i') =
 data Circuit = Circuit { grid :: [[Symbol]], size :: (Int, Int), indices :: [(Int, Int)] }
 
 instance Show Circuit where
-    show c = unlines $ fmap (fmap symbolToChar) $ grid c
+    show = unlines . grid
 
 emptyCircuit :: Circuit
 emptyCircuit = Circuit [] (0, 0) []
@@ -433,7 +437,8 @@ circuit b = case b of
             x' = circuit x
             (y'', x'') = valign y' x'
          in append 1 (arrow True y'') x'' 
-    BInd n -> Circuit [[FULL, FULL]] (2, 1) [(0, n)]
+    BInd n -> Circuit [[full, full]] (2, 1) [(0, n)]
+    BCon s -> Circuit (pure s) (length s, 1) []
 
 arrow :: Bool -> Circuit -> Circuit --adds application and lambda arrows (arrows go high in case of even height)
 arrow isApp c =
@@ -445,10 +450,10 @@ arrow isApp c =
          in updateSymbols True 0 ((y - 1) `div` 2) lamArrow c2
 
 appArrow :: [Symbol]
-appArrow = [APP, HOS, HOS, ARROW]
+appArrow = [appa, hos, hos, arr]
 
 lamArrow :: [Symbol]
-lamArrow = [ARROW, HOS, LAM, HOS]
+lamArrow = [arr, hos, lama, hos]
 
 wires :: Circuit -> Circuit --adds wiring to padding before drawing a double-line box
 wires c@(Circuit g (x, y) i) =
@@ -460,14 +465,14 @@ wires c@(Circuit g (x, y) i) =
                 i'' = filter (\(pos, ind) -> ind >= 0) i'
              in Circuit g' (x, y) i''
         Nothing ->
-            let Circuit g' _ _ = updateSymbols True 1 ((y - 1) `div` 2) (pure DOT) c
+            let Circuit g' _ _ = updateSymbols True 1 ((y - 1) `div` 2) (pure dot) c
              in Circuit g' (x, y) i'
             
 armLength :: Int -> Int
 armLength n = ((n - 1) `div` 2) - 1
 
 arm :: Int -> [Symbol]
-arm n = if armLength n == -1 then pure HOS else pure TLS <> replicate (armLength n) VES <> pure BRS
+arm n = if armLength n == -1 then pure hos else pure tls <> replicate (armLength n) ves <> pure brs
 
 straight :: Int -> Int -> [(Int, Int)] -> [Symbol]
 straight start last indices =
@@ -475,8 +480,8 @@ straight start last indices =
             case find (\(pos, ind) -> pos == n) indices of
                 Just (pos, ind) -> 
                     if ind == -1 then
-                        TEE
+                        tee
                     else
-                        PLUS
-                Nothing -> HOS
-     in fmap handlePos [start..last-1] <> pure TRS
+                        hoss
+                Nothing -> hos
+     in fmap handlePos [start..last-1] <> pure trs
