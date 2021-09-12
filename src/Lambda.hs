@@ -1,23 +1,84 @@
-module Lambda(normalizeLambda) where
+module Lambda(parseLambda, normalizeLambda) where
 
 import Types
 import Utils(bracket)
+import Parser
 
+import Data.List
+import Control.Applicative
+import Control.Monad
 import Data.Set (Set)
 import qualified Data.Set as Set
+
+parseLambda :: String -> Either String Lambda
+parseLambda s = finish s $ stripWhitespace expr
 
 normalizeLambda :: Lambda -> [Lambda]
 normalizeLambda b = b : maybe [] normalizeLambda (reduceNormal b)
 
 ---------------------------------------------------------------
+--Parsing Lambda Expressions
+
+expr :: Parser Lambda
+expr = term `chainl1` app
+
+app :: Parser (Lambda -> Lambda -> Lambda)
+app = do
+    spaces
+    return App
+
+term :: Parser Lambda
+term = lam <|> (Var <$> var) <|> con <|> qte <|> parens expr
+
+lam :: Parser Lambda
+lam = do
+    oneOf ['\\', 'λ']
+    spaces
+    vs <- vars
+    spaces
+    (char '.' <|> string "->")
+    spaces
+    e <- expr
+    return $ foldr ($) e $ fmap Lam vs
+
+var :: Parser String
+var = do
+    c <- oneOf $ ['a'..'z']
+    s <- iden
+    return $ c:s
+
+vars :: Parser [String]
+vars = do
+    v <- var
+    vs <- many $ spaces *> var 
+    return $ v : vs
+
+con :: Parser Lambda
+con = do
+    c <- oneOf $ ['A'..'Z']
+    s <- iden
+    return $ Con $ c:s
+
+qte :: Parser Lambda
+qte = do
+    string "#Quote"
+    return Qte
+
+---------------------------------------------------------------
+--Printing Lambda Expressions
 
 instance Show Lambda where
     show l = case l of
-        Lam s l -> "\\" <> s <> "." <> show l
+        Lam s t -> collect [s] t
         App a b -> (if isLam a then bracket else id) (show a) <> " " <> (if isLam b || isApp b then bracket else id) (show b)
         Var s -> s
         Con s -> s
         Qte -> "#Quote"
+
+collect :: [String] -> Lambda -> String
+collect names t = case t of
+    (Lam s t') -> collect (names <> pure s) t'
+    t' -> "\\" <> join (intersperse " " names) <> " -> " <> show t'  
 
 isLam :: Lambda -> Bool
 isLam l = case l of
@@ -28,6 +89,9 @@ isApp :: Lambda -> Bool
 isApp l = case l of
     App _ _ -> True
     _ -> False
+
+---------------------------------------------------------------
+--Reducing Lambda Expressions
 
 --get all of the free variables of a lambda expression
 free :: Lambda -> Set String

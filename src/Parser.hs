@@ -1,17 +1,12 @@
-module Parser(parseLambda) where
+module Parser where
 
 import Control.Applicative
 import Control.Monad
 
 import Types
 
-parseLambda :: String -> Either String Lambda
-parseLambda s = finish s $ stripWhitespace expr
-
 ---------------------------------------------------------------
 --Parsing Types and Instances
-
-newtype Parser a = Parser { parse :: String -> Either String (String, a) }
 
 instance Functor Parser where
     fmap = (=<<) . (.) return
@@ -48,7 +43,7 @@ oneOf :: [Char] -> Parser Char
 oneOf s = satisfy (flip elem s)
 
 iden :: Parser String
-iden = many $ oneOf $ ['a'..'z'] <> ['A'..'Z'] <> ['0'..'9'] <> ['_', '-', '\'']
+iden = many $ oneOf $ ['a'..'z'] <> ['A'..'Z'] <> ['0'..'9'] <> ['_', '\'']
 
 char :: Char -> Parser ()
 char c = do
@@ -97,45 +92,3 @@ finish s pa = case parse pa s of
     Right ("", a) -> Right a
     Right (s, a) -> Left $ "Parse Error: Some input failed to parse \"" <> s <> "\""
     Left err -> Left err
-
----------------------------------------------------------------
---Parsing Lambda Expressions
-
-expr :: Parser Lambda
-expr = term `chainl1` app
-
-app :: Parser (Lambda -> Lambda -> Lambda)
-app = do
-    spaces
-    return App
-
-term :: Parser Lambda
-term = lam <|> (Var <$> var) <|> con <|> qte <|> parens expr
-
-lam :: Parser Lambda
-lam = do
-    oneOf ['\\', 'λ']
-    spaces
-    s <- var
-    spaces
-    char '.'
-    spaces
-    e <- expr
-    return $ Lam s e
-
-var :: Parser String
-var = do
-    c <- oneOf $ ['a'..'z']
-    s <- iden
-    return $ c:s
-
-con :: Parser Lambda
-con = do
-    c <- oneOf $ ['A'..'Z']
-    s <- iden
-    return $ Con $ c:s
-
-qte :: Parser Lambda
-qte = do
-    string "#Quote"
-    return Qte
