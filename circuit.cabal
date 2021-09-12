@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
+-- This file has been generated from package.yaml by hpack version 0.34.4.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 745b980958647ae2a40e1273384d2a59eb4bed94001bae082e2af5c32d920486
+-- hash: 1ef98a0cf9b40d3af5225f73c80436eae1720e6b8df8b3ca59e2767111bbe57e
 
 name:           circuit
 version:        0.1.0.0
@@ -34,6 +34,7 @@ library
       src
   build-depends:
       base >=4.7 && <5
+    , containers
   default-language: Haskell2010
 
 executable circuit-exe
@@ -46,6 +47,7 @@ executable circuit-exe
   build-depends:
       base >=4.7 && <5
     , circuit
+    , containers
   default-language: Haskell2010
 
 test-suite circuit-test
@@ -59,4 +61,5 @@ test-suite circuit-test
   build-depends:
       base >=4.7 && <5
     , circuit
+    , containers
   default-language: Haskell2010
