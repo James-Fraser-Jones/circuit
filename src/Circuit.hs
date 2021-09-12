@@ -1,9 +1,20 @@
-module Circuit(convertCircuit) where
+module Circuit(circuitBrujin) where
 
 import Types
 import Utils(findLast)
 
 import Data.List
+
+circuitBrujin :: Brujin -> Circuit
+circuitBrujin b = case b of
+    BLam x -> arrow False $ box False $ wires $ pad 1 0 3 1 $ circuitBrujin x
+    BApp x y -> 
+        let y' = box True $ pad 0 0 1 1 $ circuitBrujin y
+            x' = circuitBrujin x
+            (y'', x'') = valign y' x'
+         in append 1 (arrow True y'') x'' 
+    BInd n -> Circuit [[full, full]] (2, 1) [(0, n)]
+    BCon s -> Circuit (pure s) (length s, 1) []
 
 ---------------------------------------------------------------
 --Circuit Symbols
@@ -133,17 +144,6 @@ instance Show Circuit where
 
 emptyCircuit :: Circuit
 emptyCircuit = Circuit [] (0, 0) []
-
-convertCircuit :: Brujin -> Circuit
-convertCircuit b = case b of
-    BLam x -> arrow False $ box False $ wires $ pad 1 0 3 1 $ convertCircuit x
-    BApp x y -> 
-        let y' = box True $ pad 0 0 1 1 $ convertCircuit y
-            x' = convertCircuit x
-            (y'', x'') = valign y' x'
-         in append 1 (arrow True y'') x'' 
-    BInd n -> Circuit [[full, full]] (2, 1) [(0, n)]
-    BCon s -> Circuit (pure s) (length s, 1) []
 
 arrow :: Bool -> Circuit -> Circuit --adds application and lambda arrows (arrows go high in case of even height)
 arrow isApp c =

@@ -5,6 +5,14 @@ import Utils(bracket)
 
 import Data.List
 
+convertBrujin :: Lambda -> Either String Brujin
+convertBrujin = convertBrujin' emptyContext
+
+normalizeBrujin :: Brujin -> [Brujin]
+normalizeBrujin b = b : maybe [] normalizeBrujin (reduceNormal b)
+
+---------------------------------------------------------------
+
 emptyContext :: BrujinContext
 emptyContext = BrujinContext []
 
@@ -32,13 +40,10 @@ instance Show Brujin where
         BInd n -> show n
         BCon s -> s
 
-convertBrujin :: Lambda -> Either String Brujin
-convertBrujin = brujin' emptyContext
-
-brujin' :: BrujinContext -> Lambda -> Either String Brujin
-brujin' (BrujinContext c) l = case l of
-    Lam s l -> BLam <$> brujin' (updateContext s $ BrujinContext c) l
-    App a b -> BApp <$> (brujin' (BrujinContext c) a) <*> (brujin' (BrujinContext c) b)
+convertBrujin' :: BrujinContext -> Lambda -> Either String Brujin
+convertBrujin' (BrujinContext c) l = case l of
+    Lam s l -> BLam <$> convertBrujin' (updateContext s $ BrujinContext c) l
+    App a b -> BApp <$> (convertBrujin' (BrujinContext c) a) <*> (convertBrujin' (BrujinContext c) b)
     Var s -> maybe (Left $ "Scope Error: Variable \"" <> s <> "\" not in scope") (Right . BInd) (lookup s c)
     Con s -> Right $ BCon s
 
@@ -83,15 +88,12 @@ beta body arg = modifyIndices (substitute arg) (modifyIndices prepare body)
 isFree :: Int -> Int -> Bool
 isFree depth index = index >= depth 
 
-reduceNormalBrujin :: Brujin -> Maybe Brujin
-reduceNormalBrujin b = case b of
-    BApp (BLam b1) b2 -> Just $ beta b1 b2             --reduce outer before inner
-    BApp b1 b2 -> case reduceNormalBrujin b1 of        --reduce left values before right ones
+reduceNormal :: Brujin -> Maybe Brujin
+reduceNormal b = case b of
+    BApp (BLam b1) b2 -> Just $ beta b1 b2       --reduce outer before inner
+    BApp b1 b2 -> case reduceNormal b1 of        --reduce left values before right ones
         Just b' -> Just $ BApp b' b2
-        Nothing -> BApp b1 <$> reduceNormalBrujin b2
-    BLam b' -> BLam <$> reduceNormalBrujin b'
+        Nothing -> BApp b1 <$> reduceNormal b2
+    BLam b' -> BLam <$> reduceNormal b'
     BInd n -> Nothing
     BCon s -> Nothing
-
-normalizeBrujin :: Brujin -> [Brujin]
-normalizeBrujin b = b : maybe [] normalizeBrujin (reduceNormalBrujin b)

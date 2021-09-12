@@ -10,10 +10,12 @@ import Control.Monad
 
 import Types
 import Parser
+import Lambda
 import Brujin
 import Circuit
 
 import GHC.IO.Encoding
+import Data.Traversable
 
 {-
 example = "(λg. λf. λx. g (f x)) (λf. λx. λy. f y x) (λf. λx. λy. f y x)"                                --flip . flip = ($)
@@ -26,7 +28,9 @@ reduceCircuit :: Int -> IO ()
 reduceCircuit limit = do
     setLocaleEncoding utf8
     input <- readFile "src/in.txt"
-    let b = parseLambda input >>= convertBrujin
-        getResults = join . intersperse "\n\n" . fmap (show . convertCircuit) . take limit . normalizeBrujin
-        output = either id getResults b 
-    writeFile "src/out.txt" output
+    let lambda = parseLambda input
+        reductions = (take limit . normalizeLambda) <$> lambda
+        brujins = reductions >>= traverse convertBrujin 
+     in do
+         putStrLn $ either id (join . intersperse "\n" . fmap show) reductions
+         writeFile "src/out.txt" $ either id (join . intersperse "\n\n" . fmap (show . circuitBrujin)) brujins

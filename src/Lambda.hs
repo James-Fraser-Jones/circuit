@@ -1,10 +1,15 @@
-module Lambda() where
+module Lambda(normalizeLambda) where
 
 import Types
 import Utils(bracket)
 
 import Data.Set (Set)
 import qualified Data.Set as Set
+
+normalizeLambda :: Lambda -> [Lambda]
+normalizeLambda b = b : maybe [] normalizeLambda (reduceNormal b)
+
+---------------------------------------------------------------
 
 instance Show Lambda where
     show l = case l of
@@ -24,11 +29,12 @@ isApp l = case l of
     App _ _ -> True
     _ -> False
 
---get a of the free variables of a lambda expression
+--get all of the free variables of a lambda expression
 free :: Lambda -> Set String
 free (Lam v l) = Set.difference (free l) (Set.singleton v)
 free (App l1 l2) = Set.union (free l1) (free l2)
 free (Var v) = Set.singleton v
+free c = Set.empty
     
 fresh :: Set String -> String -> String
 fresh exclude s = if not (Set.member s' exclude) then s' else fresh exclude s'
@@ -45,12 +51,17 @@ sub x t (Lam y t') =
         Lam z (sub x t t'')
             where t'' = sub y (Var z) t'
                   z = fresh (Set.unions [(Set.singleton x), (free t), (free t')]) y
+sub x t (App t1 t2) = App (sub x t t1) (sub x t t2)
+sub x t (Var s) = if s == x then t else (Var s)
+sub x t c = c
 
-reduce_normal :: Lambda -> Maybe Lambda
-reduce_normal b = undefined
-
-normalize :: Lambda -> [Lambda]
-normalize b = b : maybe [] normalize (reduce_normal b)
+reduceNormal :: Lambda -> Maybe Lambda
+reduceNormal (App (Lam s t1) t2) = Just $ sub s t2 t1    --reduce outer before inner
+reduceNormal (App t1 t2) = case reduceNormal t1 of       --reduce left values before right ones
+        Just t' -> Just $ App t' t2
+        Nothing -> App t1 <$> reduceNormal t2
+reduceNormal (Lam s t) = Lam s <$> reduceNormal t
+reduceNormal _ = Nothing
 
 ---------------------------------------------------------------
 --Quotation and Interpretation
