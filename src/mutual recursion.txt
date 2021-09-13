@@ -1,0 +1,18 @@
+"let x = y   in t" = "(\x.t) y      " (no recursion)
+"let x = f x in t" = "(\x.t) (fix f)" (single recursion)
+
+Environment we need to provide mutually recursive definitions: none because we can't use an environment without mutually recursive definitions (actually, yes we can, as long as there is a partial order of dependencies)
+Not fixpoly but a function which collects all arguments (which are mutually recursive functions with the recursion stripped out of them and with the enrvironment explicitly fed into them)
+into a list, applies fixpoly on this list and then gets the head of the result (the "main" function)
+
+app = \f x -> f x
+flip = \f x y -> f y x
+
+list (polyvaridic list constructor function)
+head
+tail
+map
+
+fix = \f -> (\x -> f (x x)) (\x -> f (x x))
+
+fixpoly

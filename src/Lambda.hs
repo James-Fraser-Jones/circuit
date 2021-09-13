@@ -4,11 +4,14 @@ import Types
 import Utils(bracket)
 import Parser
 
+import Data.Either
 import Data.List
 import Control.Applicative
 import Control.Monad
 import Data.Set (Set)
 import qualified Data.Set as Set
+
+import Debug.Trace
 
 parseLambda :: String -> Either String Lambda
 parseLambda s = finish s $ stripWhitespace expr
@@ -120,6 +123,7 @@ sub x t (Var s) = if s == x then t else (Var s)
 sub x t c = c
 
 reduceNormal :: Lambda -> Maybe Lambda
+reduceNormal (App Qte t) = Just $ quote t
 reduceNormal (App (Lam s t1) t2) = Just $ sub s t2 t1    --reduce outer before inner
 reduceNormal (App t1 t2) = case reduceNormal t1 of       --reduce left values before right ones
         Just t' -> Just $ App t' t2
@@ -131,15 +135,17 @@ reduceNormal _ = Nothing
 --Quotation and Interpretation
 
 {-
-Quoting Function:
-quote (\x.T) = \a.\b.\c.\d.\e. a (\x.quote T)
-quote (T U)  = \a.\b.\c.\d.\e. b (quote T) (quote U)
-quote x      = \a.\b.\c.\d.\e. c x
-quote s      = \a.\b.\c.\d.\e. d s
-quote #Quote = \a.\b.\c.\d.\e. e
+Quote Wrapping Functions:
+quote x      = \a b c d e -> a x
+quote (T U)  = \a b c d e -> b (quote T) (quote U)
+quote (\x.T) = \a b c d e -> c (\x.quote T)
+quote s      = \a b c d e -> d s
+quote #Quote = \a b c d e -> e
 -}
 quote :: Lambda -> Lambda
-quote b = undefined
-
--- wrap :: Brujin -> Brujin
--- wrap = foldr (.) id $ replicate 3 BLam
+quote t = fromRight (error $ "Quoting Error: Failed to parse expression \"" <> show t <> "\"") $ parseLambda $ case t of
+    (Var x) -> "\\a b c d e -> a " <> x
+    (App t u) -> "\\a b c d e -> b (" <> show (quote t) <> ") (" <> show (quote u) <> ")"  
+    (Lam s t) -> "\\a b c d e -> c (\\" <> s <> " -> " <> show (quote t) <> ")"
+    (Con s) -> "\\a b c d e -> d " <> s
+    Qte -> "\\a b c d e -> e"
