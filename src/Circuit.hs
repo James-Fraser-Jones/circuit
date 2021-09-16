@@ -1,20 +1,14 @@
-module Circuit(circuitBrujin) where
+module Circuit(circuit) where
 
 import Types
-import Utils(findLast)
+import Lambda
+import Brujin
+import Utils
 
 import Data.List
 
-circuitBrujin :: Brujin -> Circuit
-circuitBrujin b = case b of
-    BLam x -> arrow False $ box False $ wires $ pad 1 0 3 1 $ circuitBrujin x
-    BApp x y -> 
-        let y' = box True $ pad 0 0 1 1 $ circuitBrujin y
-            x' = circuitBrujin x
-            (y'', x'') = valign y' x'
-         in append 1 (arrow True y'') x'' 
-    BInd n -> Circuit [[full, full]] (2, 1) [(0, n)]
-    BCon s -> Circuit (pure s) (length s, 1) []
+circuit :: Int -> Int -> String -> String
+circuit i n s = either id (format i n $ fmap circuitBrujin . normalizeBrujin) (parseLambda s >>= convertBrujin)
 
 ---------------------------------------------------------------
 --Circuit Symbols
@@ -190,3 +184,15 @@ straight start last indices =
                         hoss
                 Nothing -> hos
      in fmap handlePos [start..last-1] <> pure trs
+
+circuitBrujin :: Brujin -> Circuit
+circuitBrujin b = case b of
+    BLam x -> arrow False $ box False $ wires $ pad 1 0 3 1 $ circuitBrujin x
+    BApp x y -> 
+        let y' = box True $ pad 0 0 1 1 $ circuitBrujin y
+            x' = circuitBrujin x
+            (y'', x'') = valign y' x'
+         in append 1 (arrow True y'') x'' 
+    BInd n -> Circuit [[full, full]] (2, 1) [(0, n)]
+    BCon s -> Circuit (pure s) (length s, 1) []
+    BQte -> Circuit (pure "#Quote") (6, 1) []

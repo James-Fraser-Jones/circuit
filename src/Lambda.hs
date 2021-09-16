@@ -1,7 +1,7 @@
-module Lambda(parseLambda, normalizeLambda) where
+module Lambda(lambda, parseLambda, normalizeLambda) where
 
 import Types
-import Utils(bracket)
+import Utils
 import Parser
 
 import Data.Either
@@ -13,14 +13,14 @@ import qualified Data.Set as Set
 
 import Debug.Trace
 
-parseLambda :: String -> Either String Lambda
-parseLambda s = finish s $ stripWhitespace expr
-
-normalizeLambda :: Lambda -> [Lambda]
-normalizeLambda b = b : maybe [] normalizeLambda (reduceNormal b)
+lambda :: Int -> Int -> String -> String
+lambda i n s = either id (format i n normalizeLambda) (parseLambda s)
 
 ---------------------------------------------------------------
 --Parsing Lambda Expressions
+
+parseLambda :: String -> Either String Lambda
+parseLambda s = finish s $ stripWhitespace expr
 
 expr :: Parser Lambda
 expr = term `chainl1` app
@@ -131,6 +131,9 @@ reduceNormal (App t1 t2) = case reduceNormal t1 of       --reduce left values be
 reduceNormal (Lam s t) = Lam s <$> reduceNormal t
 reduceNormal _ = Nothing
 
+normalizeLambda :: Lambda -> [Lambda]
+normalizeLambda b = b : maybe [] normalizeLambda (reduceNormal b)
+
 ---------------------------------------------------------------
 --Quotation and Interpretation
 
@@ -142,7 +145,7 @@ quote (\x.T) = \a b c d e -> c (\x.quote T)
 quote s      = \a b c d e -> d s
 quote #Quote = \a b c d e -> e
 -}
-quote :: Lambda -> Lambda
+quote :: Lambda -> Lambda --THIS CAN ACCIDENTALLY CAPTURE VARIABLES IN ITS CURRENT ITERATION
 quote t = fromRight (error $ "Quoting Error: Failed to parse expression \"" <> show t <> "\"") $ parseLambda $ case t of
     (Var x) -> "\\a b c d e -> a " <> x
     (App t u) -> "\\a b c d e -> b (" <> show (quote t) <> ") (" <> show (quote u) <> ")"  

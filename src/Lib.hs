@@ -1,6 +1,4 @@
-module Lib
-    ( reduceCircuit
-    ) where
+module Lib where
 
 import Types
 import Parser
@@ -9,39 +7,27 @@ import Brujin
 import Circuit
 
 import GHC.IO.Encoding
-import Data.List
-import Control.Monad
-import Data.Traversable
 
-reduceExpr :: Int -> IO ()
-reduceExpr limit = do
+inOut :: (String -> String) -> IO () --e.g. "inOut $ brujin 5" "inOut $ lambda 20"
+inOut f = do
     setLocaleEncoding utf8
     input <- readFile "src/in.txt"
-    let lambda = parseLambda input
-        reductions = (take limit . normalizeLambda) <$> lambda
-     in writeFile "src/out.txt" $ either id (join . intersperse "\n" . fmap show) reductions
+    writeFile "src/out.txt" $ f input
 
-reduceCircuit :: Int -> IO ()
-reduceCircuit limit = do
+inPrint :: (String -> String) -> IO () --e.g. "inOut $ brujin 5" "inOut $ lambda 20"
+inPrint f = do
     setLocaleEncoding utf8
     input <- readFile "src/in.txt"
-    let lambda = parseLambda input
-        reductions = (take limit . normalizeLambda) <$> lambda
-        brujins = reductions >>= traverse convertBrujin 
-     in writeFile "src/out.txt" $ either id (join . intersperse "\n\n" . fmap (show . circuitBrujin)) brujins
-
-parseIn :: IO ()
-parseIn = do
-    input <- readFile "src/in.txt"
-    putStrLn $ either id show (parseLambda input)
+    putStrLn $ f input
 
 ---------------------------------------------------------------
 
 --TODO:
---Fix up circuits so they still work with quotation
 --Add comment ability
 --Add simple "let" expressions (with foward dependencies)????
 --Start working on mutual "letrec" expressions using list encoding and fixpoly
+
+--http://lambda-the-ultimate.org/node/1930
 
 {-
 example = "(λg. λf. λx. g (f x)) (λf. λx. λy. f y x) (λf. λx. λy. f y x)"                                --flip . flip = ($)

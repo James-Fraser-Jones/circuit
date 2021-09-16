@@ -10,6 +10,7 @@ data Brujin = BLam Brujin
             | BApp Brujin Brujin
             | BInd Int
             | BCon String
+            | BQte
 
 data Circuit = Circuit { grid :: [[Symbol]], size :: (Int, Int), indices :: [(Int, Int)] }
 
