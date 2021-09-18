@@ -12,6 +12,10 @@ data Brujin = BLam Brujin
             | BCon String
             | BQte
 
+data Tree = Node
+          | Attach Tree Tree
+          | TCon String
+
 data Circuit = Circuit { grid :: [[Symbol]], size :: (Int, Int), indices :: [(Int, Int)] }
 
 newtype Parser a = Parser { parse :: String -> Either String (String, a) }
