@@ -20,7 +20,7 @@ lambda i n s = either id (format i n normalizeLambda) (parseLambda s)
 --Parsing Lambda Expressions
 
 parseLambda :: String -> Either String Lambda
-parseLambda s = finish s $ stripWhitespace expr
+parseLambda s = finish s $ strip expr
 
 expr :: Parser Lambda
 expr = term `chainl1` app

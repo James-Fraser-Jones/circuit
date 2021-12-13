@@ -8,7 +8,7 @@ import Utils
 import Data.List
 
 circuit :: Int -> Int -> String -> String
-circuit i n s = either id (format i n $ fmap circuitBrujin . normalizeBrujin) (parseLambda s >>= convertBrujin)
+circuit max_iterations newline_spacing s = either id (format max_iterations newline_spacing $ fmap circuitBrujin . normalizeBrujin) (parseLambda s >>= convertBrujin)
 
 ---------------------------------------------------------------
 --Circuit Symbols

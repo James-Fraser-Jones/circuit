@@ -57,11 +57,17 @@ string s = case s of
         char x
         string xs
 
-spaces :: Parser String
-spaces = many $ oneOf " \t\n\r"
+space :: Parser Char
+space = oneOf " \t\n\r"
 
-stripWhitespace :: Parser a -> Parser a
-stripWhitespace pa = do
+spaces :: Parser String
+spaces = many space
+
+spaces1 :: Parser String
+spaces1 = some space
+
+strip :: Parser a -> Parser a
+strip pa = do
     spaces
     a <- pa
     spaces
@@ -70,9 +76,7 @@ stripWhitespace pa = do
 parens :: Parser a -> Parser a
 parens pa = do
     char '('
-    spaces
-    a <- pa
-    spaces
+    a <- strip pa
     char ')'
     return a
 
@@ -85,6 +89,18 @@ pa `chainl1` op = do
             f <- op
             y <- pa
             rest (f x y)
+            ) <|> return x
+
+chainr1 :: Parser a -> Parser (a -> a -> a) -> Parser a
+pa `chainr1` op = scan
+    where
+        scan = do
+            x <- pa 
+            rest x 
+        rest x = ( do 
+            f <- op
+            y <- scan
+            return (f x y)
             ) <|> return x
 
 finish :: String -> Parser a -> Either String a

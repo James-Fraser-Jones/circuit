@@ -16,6 +16,14 @@ data Tree = Node
           | Attach Tree Tree
           | TCon String
 
+data LunaOp = LImp 
+            | LAnd 
+            | LOr
+            | LApp
+
+data Luna = LVar String
+          | LOp LunaOp Luna Luna
+
 data Circuit = Circuit { grid :: [[Symbol]], size :: (Int, Int), indices :: [(Int, Int)] }
 
 newtype Parser a = Parser { parse :: String -> Either String (String, a) }

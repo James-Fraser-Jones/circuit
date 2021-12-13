@@ -8,13 +8,13 @@ import Circuit
 
 import GHC.IO.Encoding
 
-inOut :: (String -> String) -> IO () --e.g. "inOut $ brujin 5" "inOut $ lambda 20"
+inOut :: (String -> String) -> IO () --e.g. "inOut $ brujin 5 3" "inOut $ lambda 20 3"
 inOut f = do
     setLocaleEncoding utf8
     input <- readFile "src/in.txt"
     writeFile "src/out.txt" $ f input
 
-inPrint :: (String -> String) -> IO () --e.g. "inOut $ brujin 5" "inOut $ lambda 20"
+inPrint :: (String -> String) -> IO () --e.g. "inOut $ brujin 5 3" "inOut $ lambda 20 3"
 inPrint f = do
     setLocaleEncoding utf8
     input <- readFile "src/in.txt"
