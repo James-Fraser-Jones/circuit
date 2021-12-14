@@ -42,23 +42,34 @@ satisfy predicate = Parser $ \s -> case s of
 oneOf :: [Char] -> Parser Char
 oneOf s = satisfy (flip elem s)
 
-iden :: Parser String
-iden = many $ oneOf $ ['a'..'z'] <> ['A'..'Z'] <> ['0'..'9'] <> ['_', '\'']
+char :: Char -> Parser Char
+char c = satisfy (c ==)
 
-char :: Char -> Parser ()
-char c = do
-    satisfy (c ==)
-    return ()
-
-string :: String -> Parser ()
+string :: String -> Parser String
 string s = case s of
-    [] -> return ()
+    [] -> return []
     (x:xs) -> do
-        char x
-        string xs
+        x' <- char x
+        xs' <- string xs
+        return $ x' : xs'
+
+lower :: Parser Char
+lower = oneOf ['a'..'z']
+
+upper :: Parser Char
+upper = oneOf ['A'..'Z']
+
+digit :: Parser Char
+digit = oneOf ['0'..'9']
+
+iden :: Parser String
+iden = do 
+    x <- lower
+    xs <- many $ lower <|> upper <|> digit <|> char '_'
+    return $ x:xs
 
 space :: Parser Char
-space = oneOf " \t\n\r"
+space = oneOf [' ','\t','\n','\r']
 
 spaces :: Parser String
 spaces = many space

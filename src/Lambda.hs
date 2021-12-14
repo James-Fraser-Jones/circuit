@@ -11,8 +11,6 @@ import Control.Monad
 import Data.Set (Set)
 import qualified Data.Set as Set
 
-import Debug.Trace
-
 lambda :: Int -> Int -> String -> String
 lambda i n s = either id (format i n normalizeLambda) (parseLambda s)
 
@@ -39,16 +37,13 @@ lam = do
     spaces
     vs <- vars
     spaces
-    (char '.' <|> string "->")
+    ((() <$ char '.') <|> (() <$ string "->"))
     spaces
     e <- expr
     return $ foldr ($) e $ fmap Lam vs
 
 var :: Parser String
-var = do
-    c <- oneOf $ ['a'..'z']
-    s <- iden
-    return $ c:s
+var = iden
 
 vars :: Parser [String]
 vars = do

@@ -6,6 +6,8 @@ import Parser
 
 import Control.Applicative
 import Control.Monad
+import Data.Set (Set)
+import qualified Data.Set as Set
 
 -- data LunaOp = LImp 
 --             | LAnd 
@@ -13,22 +15,14 @@ import Control.Monad
 --             | LApp
 
 -- data Luna = LVar String
+--           | LBin String
 --           | LOp LunaOp Luna Luna
 
 ---------------------------------------------------------------
 --Parsing Luna Expressions
 
--- parseLuna :: String -> Either String Lambda
--- parseLuna s = finish s $ strip expr
-
-lvar :: Parser String
-lvar = do
-  c <- oneOf $ ['a'..'z']
-  s <- iden
-  return $ c:s
-
-lunaop :: Parser LunaOp
-lunaop = (LImp <$ string "->") <|> (LAnd <$ string ".") <|> (LOr <$ string "|") <|> (LApp <$ spaces)
+parseLuna :: String -> Either String Luna
+parseLuna s = finish s $ strip expr
 
 opStr :: LunaOp -> String
 opStr op = case op of
@@ -39,16 +33,25 @@ opStr op = case op of
 
 opApp :: LunaOp -> Parser (Luna -> Luna -> Luna)
 opApp op = do
-  spaces
-  string $ opStr op
-  spaces
+  strip $ string $ opStr op
   return $ LOp op
 
--- expr :: Parser Lambda
--- expr = term `chainl1` app
+bin :: Parser Luna
+bin = do
+  name <- iden
+  char '\''
+  return $ LBin name
 
--- term :: Parser Lambda
--- term = (LVar <$> lvar) <|> lop <|> parens expr
+var :: Parser Luna
+var = do
+  name <- iden
+  return $ LVar name
+
+term :: Parser Luna
+term = bin <|> var <|> parens expr
+
+expr :: Parser Luna
+expr = (((term `chainl1` opApp LAnd) `chainl1` opApp LApp) `chainr1` opApp LImp) `chainr1` opApp LOr
 
 ---------------------------------------------------------------
 --Printing Luna Expressions
@@ -63,6 +66,7 @@ instance Show LunaOp where
 instance Show Luna where
   show expr = case expr of
     LVar s -> s
+    LBin s -> s <> "'"
     LOp o a b -> (show' False o a) <> show o <> (show' True o b)
 
 --provides prescedence and associativity (False = Left, True = Right)
@@ -85,13 +89,22 @@ show' isRight op expr = case expr of
      in f $ show e
   v -> show v
 
+---------------------------------------------------------------
+--Reducing Luna Expressions
+
+sub :: String -> Luna -> Luna -> Luna
+sub = undefined
+
+---------------------------------------------------------------
+--Test Expressions
+
 test1 :: Luna
 test1 = (
     LOp LOr
       ( LOp LImp
           ( LOp LApp
               ( LOp LAnd
-                  (LVar "a")
+                  (LBin "a")
                   (LVar "b")
               )
               ( LOp LAnd

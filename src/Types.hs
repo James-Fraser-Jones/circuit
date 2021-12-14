@@ -22,6 +22,7 @@ data LunaOp = LImp
             | LApp
 
 data Luna = LVar String
+          | LBin String
           | LOp LunaOp Luna Luna
 
 data Circuit = Circuit { grid :: [[Symbol]], size :: (Int, Int), indices :: [(Int, Int)] }
