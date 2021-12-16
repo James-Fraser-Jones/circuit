@@ -25,6 +25,10 @@ data Luna = LVar String
           | LBin String
           | LOp LunaOp Luna Luna
 
+data Bruna = BBin
+           | BVar Int
+           | BOp LunaOp Bruna Bruna
+
 data Circuit = Circuit { grid :: [[Symbol]], size :: (Int, Int), indices :: [(Int, Int)] }
 
 newtype Parser a = Parser { parse :: String -> Either String (String, a) }

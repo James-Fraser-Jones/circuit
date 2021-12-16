@@ -62,6 +62,16 @@ upper = oneOf ['A'..'Z']
 digit :: Parser Char
 digit = oneOf ['0'..'9']
 
+nat :: Parser String
+nat = some digit
+
+int :: Parser String
+int = ( do
+    char '-'
+    n <- nat
+    return ('-':n)
+    ) <|> nat
+
 iden :: Parser String
 iden = do 
     x <- lower
