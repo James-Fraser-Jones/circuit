@@ -309,29 +309,24 @@ idb = bruna BBin BVar BOp
 stars :: Bruna -> Int
 stars = bruna 1 (const 0) (const (+))
 
---bruna :: (Depth -> (Bruna, Int)) ...
+{-
+define substitution (considering that subbing into the left side of an abstraction increases the number of binders so right side needs to be incremented extra to compensate)
 
--- bbeta :: Bruna -> Bruna -> Bruna
--- bbeta body arg = fst $ bruna 
---   (\d -> (BBin, 0)) 
---   (\n d -> case compare n (d + 1) of
---     EQ -> (inc d arg, stars arg)  --substitute
---     GT -> (BVar $ pred n, 0)      --decrement free variable
---     LT -> (BVar $ n, 0)           --do nothing
---   ) 
---   (\o f g d -> case o of
---     LImp -> (BOp LImp (fst (f d)) (fst (g (d + snd (f d)))), snd (f d) + snd (g (d + snd (f d))))
---     o -> (BOp o (f d) (g d), snd (f d) + snd (g d)) 
---   ) 
---   body 0
+define function which seperates head from body (a -> b)
+figure out what happens to "frozen" variables in that case (ones which no longer point to anything)
+and how to restore them by placing them under enough binders at the right layer
 
--- inc = const id
+define beta (which uses substitution as well as pattern matching functions)
 
-breduceNormal :: Bruna -> Maybe Bruna
-breduceNormal b = undefined
+prove resulting system to be confluent
 
-normalizeBruna :: Bruna -> [Bruna]
-normalizeBruna b = undefined
+implement equality macro
+implement "eval"
+run various macros on themselves (using eval to unfreeze the macro)
+
+I should implement this using pointers or (in Haskell) as a Map Int (Int, ...)
+that way we don't have to faf around with incrementing and decrementing indices just to make sure they're still "pointing" to the same place
+-}
 
 ---------------------------------------------------------------
 --Test Bruna Expressions

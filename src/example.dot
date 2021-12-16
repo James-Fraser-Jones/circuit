@@ -1,0 +1,56 @@
+//dot -Tsvg src/example.dot > src/example_output.svg
+// echo 'digraph { a -> b }' | dot -Tsvg > src/example_output.svg
+
+digraph {
+  node [ordering=out shape=circle label=""];
+
+  { rank = same; x; }
+  { rank = same; 0; }
+  { rank = same; 1; 2; }
+  { rank = same; 7; 8; 3; 4; }
+  { rank = same; 9; 10; 5; 6; }
+  { rank = same; 11; 12; }
+  { rank = same; 13; 14; 15; 16; }
+  { rank = same; 17; 18; }
+
+  x -> 0;
+
+  0 -> 1;
+  0 -> 2;
+
+  2 -> 3;
+  2 -> 4;
+
+  4 -> 5;
+  4 -> 6;
+
+  1 -> 7;
+  1 -> 8;
+
+  8 -> 9;
+  8 -> 10;
+
+  10 -> 11;
+  10 -> 12;
+
+  11 -> 13;
+  11 -> 14;
+
+  12 -> 15;
+  12 -> 16;
+
+  16 -> 17;
+  16 -> 18;
+
+  edge [constraint=false];
+
+  5 -> x;
+  13 -> x;
+
+  6 -> 3;
+
+  14 -> 7;
+  17 -> 7;
+  
+  18 -> 15;
+}
