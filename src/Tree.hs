@@ -1,67 +1,42 @@
-module Tree() where --experiments with "Tree Calculus by Barry Jay"
+module Tree(Tree, Tree.read, insert, replace, delete, top) where
 
-import Utils
-import Types
-import Parser
+import Data.Map (Map)
+import qualified Data.Map as Map
 
-import Control.Applicative
-import Data.Either
+------------------------------------------------------------------------
+--Memory allocation
 
----------------------------------------------------------------
---Examples
+data Alloc k = Alloc {next :: k, recycle :: [k]}
 
-example1 = extract $ parseTree "^^yz"
-example2 = extract $ parseTree "^(^x)yz"
-example3 = extract $ parseTree "^(^wx)yz"
+malloc :: (Ord k, Enum k) => Alloc k -> (k, Alloc k)
+malloc (Alloc n []) = (n, Alloc (succ n) [])
+malloc (Alloc n (r:rs)) = (r, Alloc n rs)
 
----------------------------------------------------------------
---Parsing Tree Expressions
+free :: (Ord k, Enum k) => k -> Alloc k -> Alloc k
+free k (Alloc n rs) = Alloc n (k:rs)
 
-extract :: Either String Tree -> Tree
-extract = either (error "Error: Bad Tree") id
+------------------------------------------------------------------------
+--Trees
 
-parseTree :: String -> Either String Tree
-parseTree s = finish s $ stripWhitespace expr
+data Tree n k = Tree {dict :: Map k (n k), top' :: k, alloc :: Alloc k}
 
-expr :: Parser Tree
-expr = term `chainl1` attach
+top :: Tree n k -> k
+top = top'
 
-term :: Parser Tree
-term = node <|> con <|> parens expr
+read :: (Ord k, Enum k) => k -> Tree n k -> n k
+read k t = dict t Map.! k
 
-attach :: Parser (Tree -> Tree -> Tree)
-attach = return Attach
+insert :: (Ord k, Enum k) => n k -> Tree n k -> Tree n k
+insert n (Tree d t a) = Tree d' t a'
+  where (k, a') = malloc a
+        d' = Map.insert k n d
 
-node :: Parser Tree
-node = do
-    char '^'
-    spaces
-    return Node
+replace :: (Ord k, Enum k) => k -> n k -> Tree n k -> Tree n k
+replace k n (Tree d t a) = Tree d' t a 
+  where d' = Map.update (const $ Just n) k d
 
-con :: Parser Tree
-con = do
-    s <- oneOf ['a'..'z']
-    spaces
-    return $ TCon $ pure s
-
----------------------------------------------------------------
---Printing Tree Expressions
-
-instance Show Tree where
-    show Node = "^"
-    show (TCon s) = s
-    show (Attach t u) = show t <> (if isAttach u then bracket else id) (show u)
-
-isAttach :: Tree -> Bool
-isAttach (Attach _ _) = True
-isAttach _ = False
-
----------------------------------------------------------------
---Reducing Tree Expressions
-
-reduce :: Tree -> Maybe Tree
-reduce (Attach (Attach (Attach Node Node) y) z) = Just y
-reduce (Attach (Attach (Attach Node (Attach Node x)) y) z) = Just $ Attach (Attach y z) (Attach x z)
-reduce (Attach (Attach (Attach Node (Attach (Attach Node w) x)) y) z) = Just $ Attach (Attach z w) x
-reduce _ = Nothing
-
+delete :: (Ord k, Enum k) => k -> k -> Tree n k -> Tree n k
+delete k kTop (Tree d t a) = Tree d' t' a'
+  where a' = free k a
+        d' = Map.delete k d
+        t' = if k == t then kTop else t
