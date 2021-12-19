@@ -1,56 +1,41 @@
 //dot -Tsvg src/example.dot > src/example_output.svg
 // echo 'digraph { a -> b }' | dot -Tsvg > src/example_output.svg
 
-digraph {
-  node [ordering=out shape=circle label=""];
+digraph example {
 
-  { rank = same; x; }
-  { rank = same; 0; }
-  { rank = same; 1; 2; }
-  { rank = same; 7; 8; 3; 4; }
-  { rank = same; 9; 10; 5; 6; }
-  { rank = same; 11; 12; }
-  { rank = same; 13; 14; 15; 16; }
-  { rank = same; 17; 18; }
-
-  x -> 0;
-
-  0 -> 1;
-  0 -> 2;
-
-  2 -> 3;
-  2 -> 4;
-
-  4 -> 5;
-  4 -> 6;
-
-  1 -> 7;
-  1 -> 8;
-
-  8 -> 9;
-  8 -> 10;
-
-  10 -> 11;
-  10 -> 12;
-
-  11 -> 13;
-  11 -> 14;
-
-  12 -> 15;
-  12 -> 16;
-
-  16 -> 17;
-  16 -> 18;
-
-  edge [constraint=false];
-
-  5 -> x;
-  13 -> x;
-
-  6 -> 3;
-
-  14 -> 7;
-  17 -> 7;
+  node [ordering=out shape=circle fixedsize=true style=filled label="" fillcolor=white];
   
-  18 -> 15;
+  //anchors
+  subgraph cluster_anchors {
+    u w x y z
+  }
+
+  //lambda tree
+  subgraph cluster_tree {
+    0[fillcolor=green]
+    0->{1[fillcolor=blue] 2[fillcolor=blue]}
+    2->{3[label="𐤓x" fillcolor=red] 4[fillcolor=green]}
+    4->{5[label="w"] 6[fillcolor=yellow]}
+    1->{7[label="𐤓x" fillcolor=red] 8[fillcolor=blue]}
+    8->{9[label="𐤓y" fillcolor=red] 10[fillcolor=green]}
+    10->{11[fillcolor=green] 12[fillcolor=blue]}
+    11->{13[label="z"] 14[fillcolor=yellow]}
+    12->{15[label="𐤓u" fillcolor=red] 16[fillcolor=green]} 
+    16->{17[fillcolor=yellow] 18[fillcolor=yellow]}
+  }
+  
+  // //bound variables
+  edge [constraint=false];
+  6->3
+  {14 17}->7
+  18->15
+
+  // //binders
+  // {3 7}->x
+  // 9->y
+  // 15->u
+
+  // //globally free variables
+  // 5->w
+  // 13->z
 }
