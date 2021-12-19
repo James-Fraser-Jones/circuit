@@ -6,21 +6,22 @@ import qualified Tree as Tree
 import Data.Set (Set)
 import qualified Data.Set as Set
 
+newtype Term k = Term {unTerm :: k}
+
+program :: Tree n k -> Term k
+program = Term . Tree.top
+
 data BrujinNode k = Var {val :: Int}
                   | App {arg :: k, func :: k}
                   | Bin {body :: k}
 
-
+dupBrujin :: k -> Term k -> Tree BrujinNode k -> Tree BrujinNode k
+dupBrujin = undefined
 
 -- --bidirectional
 -- data Node k = Var {bind :: k}
 --             | App {arg :: k, func :: k}
 --             | Bin {body :: k, vars :: [k]}
-
--- newtype Term k = Term {unTerm :: k}
-
--- program :: Graph k -> Term k
--- program = Term . top
 
 -- --eliminator for Terms
 -- term :: Ord k => Graph k -> (k -> a) -> (a -> a -> a) -> (a -> [k] -> a) -> Term k -> a
