@@ -19,6 +19,7 @@ dupBrujin :: k -> Term k -> Tree BrujinNode k -> Tree BrujinNode k
 dupBrujin = undefined
 
 -- --bidirectional
+
 -- data Node k = Var {bind :: k}
 --             | App {arg :: k, func :: k}
 --             | Bin {body :: k, vars :: [k]}

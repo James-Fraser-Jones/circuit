@@ -33,7 +33,7 @@ digraph example {
   //enforce subgraph positions
   0->u [style=invis]
   
-  // //bound variables
+  //globally bound variables
   edge [constraint=false dir=none color=darkgoldenrod1];
   6->3
   {14 17}->7
