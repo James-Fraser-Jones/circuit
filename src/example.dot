@@ -3,39 +3,50 @@
 
 digraph example {
 
-  node [ordering=out shape=circle fixedsize=true style=filled label="" fillcolor=white];
+  node [ordering=out shape=circle fixedsize=true style=filled label="" fillcolor=white]
+  edge [arrowsize=0.5]
   
   //anchors
   subgraph cluster_anchors {
-    u w x y z
-  }
-
-  //lambda tree
-  subgraph cluster_tree {
-    0[fillcolor=green]
-    0->{1[fillcolor=blue] 2[fillcolor=blue]}
-    2->{3[label="𐤓x" fillcolor=red] 4[fillcolor=green]}
-    4->{5[label="w"] 6[fillcolor=yellow]}
-    1->{7[label="𐤓x" fillcolor=red] 8[fillcolor=blue]}
-    8->{9[label="𐤓y" fillcolor=red] 10[fillcolor=green]}
-    10->{11[fillcolor=green] 12[fillcolor=blue]}
-    11->{13[label="z"] 14[fillcolor=yellow]}
-    12->{15[label="𐤓u" fillcolor=red] 16[fillcolor=green]} 
-    16->{17[fillcolor=yellow] 18[fillcolor=yellow]}
+    penwidth=0
+    { //rank=same //force anchors to be horizontal
+      edge [style=invis]
+      u->w->x->y->z
+    }
   }
   
+  //lambda tree
+  subgraph cluster_tree {
+    penwidth=0
+    0[fillcolor=green]
+    0->{1[fillcolor=blue] 2[fillcolor=blue]}
+    2->{3[fillcolor=red] 4[fillcolor=green]} //label="𐤓x"
+    4->{5 6[fillcolor=yellow]} //label="w"
+    1->{7[fillcolor=red] 8[fillcolor=blue]} //label="𐤓x"
+    8->{9[fillcolor=red] 10[fillcolor=green]} //label="𐤓y"
+    10->{11[fillcolor=green] 12[fillcolor=blue]}
+    11->{13 14[fillcolor=yellow]} //label="z"
+    12->{15[fillcolor=red] 16[fillcolor=green]} //label="𐤓u"
+    16->{17[fillcolor=yellow] 18[fillcolor=yellow]}
+  }
+
+  //enforce subgraph positions
+  0->u [style=invis]
+  
   // //bound variables
-  edge [constraint=false];
+  edge [constraint=false dir=none color=darkgoldenrod1];
   6->3
   {14 17}->7
   18->15
 
-  // //binders
-  // {3 7}->x
-  // 9->y
-  // 15->u
+  //binders
+  edge [color=firebrick]
+  {3 7}->x
+  9->y
+  15->u
 
-  // //globally free variables
-  // 5->w
-  // 13->z
+  //globally free variables
+  edge [color=grey]
+  5->w
+  13->z
 }
