@@ -1,12 +1,11 @@
 module Tree(Tree, new, top, query, insert, replace, delete) where
 
-import Data.Map (Map)
+import Types
+
 import qualified Data.Map as Map
 
 ------------------------------------------------------------------------
 --Memory allocation
-
-data Alloc k = Alloc {next :: k, recycle :: [k]}
 
 empty :: (Ord k, Enum k) => k -> Alloc k
 empty n = Alloc n []
@@ -21,7 +20,7 @@ free k (Alloc n rs) = Alloc n (k:rs)
 ------------------------------------------------------------------------
 --Trees
 
-data Tree n k = Tree {dict :: Map k (n k), top :: k, alloc :: Alloc k}
+
 
 new :: (Ord k, Enum k) => k -> n k -> Tree n k
 new k n = insert n t

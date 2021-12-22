@@ -1,4 +1,4 @@
-module TreeCalc() where --experiments with "Tree Calculus by Barry Jay"
+module Natree() where --experiments with "Tree Calculus by Barry Jay"
 
 import Utils
 import Types
@@ -15,51 +15,51 @@ example2 = extract $ parseTree "^(^x)yz"
 example3 = extract $ parseTree "^(^wx)yz"
 
 ---------------------------------------------------------------
---Parsing Tree Expressions
+--Parsing Natree Expressions
 
-extract :: Either String Tree -> Tree
-extract = either (error "Error: Bad Tree") id
+extract :: Either String Natree -> Natree
+extract = either (error "Error: Bad Natree") id
 
-parseTree :: String -> Either String Tree
+parseTree :: String -> Either String Natree
 parseTree s = finish s $ stripWhitespace expr
 
-expr :: Parser Tree
+expr :: Parser Natree
 expr = term `chainl1` attach
 
-term :: Parser Tree
+term :: Parser Natree
 term = node <|> con <|> parens expr
 
-attach :: Parser (Tree -> Tree -> Tree)
+attach :: Parser (Natree -> Natree -> Natree)
 attach = return Attach
 
-node :: Parser Tree
+node :: Parser Natree
 node = do
     char '^'
     spaces
     return Node
 
-con :: Parser Tree
+con :: Parser Natree
 con = do
     s <- oneOf ['a'..'z']
     spaces
     return $ TCon $ pure s
 
 ---------------------------------------------------------------
---Printing Tree Expressions
+--Printing Natree Expressions
 
-instance Show Tree where
+instance Show Natree where
     show Node = "^"
     show (TCon s) = s
     show (Attach t u) = show t <> (if isAttach u then bracket else id) (show u)
 
-isAttach :: Tree -> Bool
+isAttach :: Natree -> Bool
 isAttach (Attach _ _) = True
 isAttach _ = False
 
 ---------------------------------------------------------------
---Reducing Tree Expressions
+--Reducing Natree Expressions
 
-reduce :: Tree -> Maybe Tree
+reduce :: Natree -> Maybe Natree
 reduce (Attach (Attach (Attach Node Node) y) z) = Just y
 reduce (Attach (Attach (Attach Node (Attach Node x)) y) z) = Just $ Attach (Attach y z) (Attach x z)
 reduce (Attach (Attach (Attach Node (Attach (Attach Node w) x)) y) z) = Just $ Attach (Attach z w) x
