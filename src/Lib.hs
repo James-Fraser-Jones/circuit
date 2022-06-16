@@ -11,16 +11,17 @@ import GHC.IO.Encoding
 inOut :: (String -> String) -> IO () --e.g. "inOut $ brujin 5 3" "inOut $ lambda 20 3"
 inOut f = do
     setLocaleEncoding utf8
-    input <- readFile "src/in.txt"
-    writeFile "src/out.txt" $ f input
+    input <- readFile "io/in.txt"
+    writeFile "io/out.txt" $ f input
 
-inPrint :: (String -> String) -> IO () --e.g. "inOut $ brujin 5 3" "inOut $ lambda 20 3"
+inPrint :: (String -> String) -> IO ()
 inPrint f = do
     setLocaleEncoding utf8
-    input <- readFile "src/in.txt"
+    input <- readFile "io/in.txt"
     putStrLn $ f input
 
 ---------------------------------------------------------------
+--scratch area
 
 --TODO:
 --Add comment ability
@@ -31,7 +32,7 @@ inPrint f = do
 
 {-
 example = "(λg. λf. λx. g (f x)) (λf. λx. λy. f y x) (λf. λx. λy. f y x)"                                --flip . flip = ($)
-example2 = "(λx. λy. (λs. λz. x s (y s z))) (λs. λz. s (s z)) (λs. λz. s (s (s z)))"                     --2 + 3 = 5
+example2 = "(λx. λy. (λs. λz. x s (y s z))) (λs. λz. s (s z)) (λs. λz. s (s (s z))) Succ Zero"           --2 + 3 = 5
 example3 = "(λf. (λx. f (x x)) (λx. f (x x))) (λx. x)"                                                   --fixpoint combinator applied to id
 example4 = "(λf. (λx. f (x x)) (λx. f (x x))) (λe. λm. m (λx.x) (λm. λn.(e m) (e n)) (λm. λv. e (m v)))" --self interpreting expression
 
@@ -39,6 +40,36 @@ nil = (\n c -> n)
 cons = (\h t n c -> c h t)
 head = (\l -> l (\n c -> n) (\h t -> h))
 tail = (\l -> l (\n c -> n) (\h t -> t))
+
+-------------------------------------------
+
+(\compose -> 
+(\fix ->
+(\eval ->
+(\const -> 
+(\const_program -> 
+(\fix1 ->
+(\triple -> 
+(\wait -> 
+(\fix2 -> 
+
+(\example ->
+
+fix2 eval (#R example)
+
+) (\x y -> y x (\b -> b))
+
+) (wait fix1)
+) (\f a b -> const_program (triple f a b) b (\x -> x))
+) (\a b c t -> t a b c)
+) (\f -> (const_program (\x -> f (x x)) f) (\x -> f (x x)))
+) (\k p -> #R p (const k) (const (const k)) (const k) (const k) (const k))
+) (\a b -> a)
+) (\f r -> r (\x -> x) (\l r -> (f l) (f r)) (\t x -> f (t x)) (\x -> x) #R)
+) (\f -> (\x -> f (x x)) (\x -> f (x x)))
+) (\g f x -> g (f x))
+
+-------------------------------------------
 -}
 
 fix :: (a -> a) -> a

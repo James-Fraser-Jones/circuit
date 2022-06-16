@@ -9,7 +9,7 @@ data Lambda = Lam String Lambda
             | App Lambda Lambda
             | Var String
             | Con String
-            | Qte
+            | Rei
 
 data Brujin = BLam Brujin
             | BApp Brujin Brujin
@@ -44,17 +44,6 @@ data Alloc k = Alloc {next :: k, recycle :: [k]}
 
 data Tree n k = Tree {dict :: Map k (n k), top :: k, alloc :: Alloc k}
 
-newtype Term k = Term {unTerm :: k}
-
-data LambdaNode k = NVar {lam' :: k}
-                  | NApp {arg' :: k, func' :: k}
-                  | NLam {body' :: k, vars' :: [k]}
-
-data ReshNode k = RVar {bins :: [k]}
-                | RApp {arg :: k, func :: k}
-                | RLun {head :: k, body :: k}
-                | RBin {vars :: [k]}
-
 -----------------------------------------------------------------------
 
 data Circuit = Circuit { grid :: [[Symbol]], size :: (Int, Int), indices :: [(Int, Int)] }
@@ -64,8 +53,3 @@ type Symbol = Char
 -----------------------------------------------------------------------
 
 newtype Parser a = Parser { parse :: String -> Either String (String, a) }
-
-
-
-
-

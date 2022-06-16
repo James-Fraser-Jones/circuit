@@ -21,7 +21,7 @@ extract :: Either String Natree -> Natree
 extract = either (error "Error: Bad Natree") id
 
 parseTree :: String -> Either String Natree
-parseTree s = finish s $ stripWhitespace expr
+parseTree s = finish s $ strip expr
 
 expr :: Parser Natree
 expr = term `chainl1` attach

@@ -1,1 +1,0 @@
-(λx. λy. (λs. λz. x s (y s z))) (λs. λz. s (s z)) (λs. λz. s (s (s z))) Succ Zero

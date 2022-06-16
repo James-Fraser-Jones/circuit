@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 164353b40301f8265f3058a2061cf4fd08feb5085600bfce3473132ca5333598
+-- hash: 560326bee8484f6a4980c738f670f4dee73048341a6741038f096f7afc66c903
 
 name:           circuit
 version:        0.1.0.0
@@ -31,7 +31,10 @@ library
       Circuit
       Lambda
       Lib
+      Luna
+      Natree
       Parser
+      Tree
       Types
       Utils
   other-modules:
@@ -41,6 +44,7 @@ library
   build-depends:
       base >=4.7 && <5
     , containers
+    , split
   default-language: Haskell2010
 
 executable circuit-exe
@@ -54,6 +58,7 @@ executable circuit-exe
       base >=4.7 && <5
     , circuit
     , containers
+    , split
   default-language: Haskell2010
 
 test-suite circuit-test
@@ -68,4 +73,5 @@ test-suite circuit-test
       base >=4.7 && <5
     , circuit
     , containers
+    , split
   default-language: Haskell2010
