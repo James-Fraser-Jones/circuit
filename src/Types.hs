@@ -8,7 +8,7 @@ import qualified Data.Map as Map
 data Lambda = Lam String Lambda
             | App Lambda Lambda
             | Var String
-            | Con String
+            | Mvar String
             | Rei
 
 data Brujin = BLam Brujin

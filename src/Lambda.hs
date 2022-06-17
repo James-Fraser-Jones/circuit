@@ -31,7 +31,7 @@ app = do
     return App
 
 term :: Parser Lambda
-term = lam <|> (Var <$> var) <|> con <|> rei <|> parens expr
+term = lam <|> (Var <$> var) <|> metavar <|> rei <|> parens expr
 
 lam :: Parser Lambda
 lam = do
@@ -53,11 +53,11 @@ vars = do
     vs <- many $ spaces *> var 
     return $ v : vs
 
-con :: Parser Lambda
-con = do
+metavar :: Parser Lambda
+metavar = do
     c <- oneOf $ ['A'..'Z']
     s <- (iden <|> pure "")
-    return $ Con $ c:s
+    return $ Mvar $ c:s
 
 rei :: Parser Lambda
 rei = do
@@ -72,7 +72,7 @@ instance Show Lambda where
         Lam s t -> collect [s] t
         App a b -> (if isLam a then bracket else id) (show a) <> " " <> (if isLam b || isApp b then bracket else id) (show b)
         Var s -> s
-        Con s -> s
+        Mvar s -> s
         Rei -> "#R"
 
 collect :: [String] -> Lambda -> String
@@ -143,16 +143,16 @@ normalizeLambda b = b : maybe [] normalizeLambda (reduceNormal b)
 ---------------------------------------------------------------
 --Reification
 
-reify :: Lambda -> Lambda --this needs to be capture avoiding as well
+reify :: Lambda -> Lambda
 reify l = case l of
   (Var x)   -> let f = fresh $ Set.singleton x
-                in Lam (f "#a") $ Lam (f "#b") $ Lam (f "#c") $ Lam (f "#d") $ Lam (f "#e") $ App (Var (f "#a")) (Var x)
+                in Lam (f "#a") $ Lam (f "#b") $ Lam (f "#c") $ Lam (f "#d") $ App (Var (f "#a")) (Var x)
   (App t u) -> let f = fresh $ Set.union (free rt) (free ru)
                    rt = reify t
                    ru = reify u
-                in Lam (f "#a") $ Lam (f "#b") $ Lam (f "#c") $ Lam (f "#d") $ Lam (f "#e") $ App (App (Var (f "#b")) rt) ru
+                in Lam (f "#a") $ Lam (f "#b") $ Lam (f "#c") $ Lam (f "#d") $ App (App (Var (f "#b")) rt) ru
   (Lam s t) -> let f = fresh $ (free rt)
                    rt = reify t
-                in Lam (f "#a") $ Lam (f "#b") $ Lam (f "#c") $ Lam (f "#d") $ Lam (f "#e") $ App (Var (f "#c")) (Lam s rt)
-  (Con s)   -> Lam "#a" $ Lam "#b" $ Lam "#c" $ Lam "#d" $ Lam "#e" $ App (Var "#d") (Con s)
-  Rei       -> Lam "#a" $ Lam "#b" $ Lam "#c" $ Lam "#d" $ Lam "#e" $ Var "#e"
+                in Lam (f "#a") $ Lam (f "#b") $ Lam (f "#c") $ Lam (f "#d") $ App (Var (f "#c")) (Lam s rt)
+  (Mvar s)  -> error "Reify operator applied to metavariable"
+  Rei       -> Lam "#a" $ Lam "#b" $ Lam "#c" $ Lam "#d" $ Var "#d"

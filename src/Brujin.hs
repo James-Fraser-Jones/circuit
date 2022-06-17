@@ -58,7 +58,7 @@ convertBrujin' (BrujinContext c) l = case l of
     Lam s l -> BLam <$> convertBrujin' (updateContext s $ BrujinContext c) l
     App a b -> BApp <$> (convertBrujin' (BrujinContext c) a) <*> (convertBrujin' (BrujinContext c) b)
     Var s -> maybe (Left $ "Scope Error: Variable \"" <> s <> "\" not in scope") (Right . BInd) (lookup s c)
-    Con s -> Right $ BCon s
+    Mvar s -> Right $ BCon s
     Rei -> Right BQte
 
 convertBrujin :: Lambda -> Either String Brujin
