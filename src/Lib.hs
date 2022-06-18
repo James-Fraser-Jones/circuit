@@ -8,16 +8,16 @@ import Circuit
 
 import GHC.IO.Encoding
 
-inOut :: (String -> String) -> IO () --e.g. "inOut $ brujin 5 3" "inOut $ lambda 20 3"
-inOut f = do
+runFile :: FilePath -> (String -> String) -> IO () --e.g. runFile "fix2" $ lambda 100 1
+runFile file f = do
     setLocaleEncoding utf8
-    input <- readFile "io/in.txt"
-    writeFile "io/out.txt" $ f input
+    input <- readFile ("io/" ++ file ++ ".txt")
+    writeFile ("io/" ++ file ++ "_out.txt") $ f input
 
-inPrint :: (String -> String) -> IO () --e.g. inPrint $ lambdaSingle 20
-inPrint f = do
+runPrint :: FilePath -> (String -> String) -> IO () --e.g. runPrint "example" $ lambdaSingle 20
+runPrint file f = do
     setLocaleEncoding utf8
-    input <- readFile "io/in.txt"
+    input <- readFile ("io/" ++ file ++ ".txt")
     putStrLn $ f input
 
 ---------------------------------------------------------------

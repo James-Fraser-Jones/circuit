@@ -167,3 +167,37 @@ reify l = case l of
                 in Lam (f "#a") $ Lam (f "#b") $ Lam (f "#c") $ Lam (f "#d") $ Lam (f "#e") $ App (Var (f "#c")) (Lam s rt)
   Rei       -> Lam "#a" $ Lam "#b" $ Lam "#c" $ Lam "#d" $ Lam "#e" $ Var "#d"
   (Mvar s)  -> Lam "#a" $ Lam "#b" $ Lam "#c" $ Lam "#d" $ Lam "#e" $ App (Var "#e") (Mvar s)
+
+--we require that l is a combinator, we intend to strip the *minimum* amount from the outer structure *without* stripping nothing
+-- step_reify :: Lambda -> Lambda
+-- step_reify l = case l of
+--     (Var x) -> --var is impossible at the outer layer since l is a combinator
+
+--   (App t u) -> --app *could* be safely pulled apart and t u passed to a continuation but
+--                --actually if t is (or evaluates to) a lambda abstraction then (t u) can be reduced
+--                --so this must be checked *before* pulling them apart (else confluence is broken)
+--                --so, essentially, if in the process of being reduced to a normal form, t does not become
+--                --an abstraction at the top level, then this is safe to pull apart
+--                --fortunately, normal order evaluation always starts at the top level anyway so it's quite concievable
+--                --that there will be lots of applications looking like (x T) etc..
+
+--   (Lam s t) -> --in this case, if t happens to be a combinator then we can easily return it (as a special combinator case inside the abstraction case)
+--                --however it is likely that x is free in t
+--                --in this case, it is important for us to descend in order to case on all the free x variables
+--                --this may require us to descend below more abstractions, increasing the potential number of free variables we have to reach
+--                --in the worst case, we will have no opportunity to cleanly isolate a sub-combinator and return it with the special case
+--                --even in circumstances where there *are* sub-combinators, in certain circumstances (such as those combinators acting on free variables)
+--                --we must evaluate these until no more computations are acting on free variables
+--                --if, instead, combinators are being passed *as arguments* then they can be cased on
+--                --as a reminder, the reason we must touch all free variables with reify is because otherwise we lose information that we can't
+--                --get back since we will have reified the binder but not the corresponding variables and they can't be seperated in the same way
+--                --as subcombinators
+
+--         Rei -> --extremely simple case just pass correct continuation 
+
+--I think best idea is to try and figure out how exactly fix eval works
+--(like why doesn't "fix eval (#R (\a b c d e -> c (\x -> x)))") give the wrong result and try to eval what looks like
+--a bunch of continuations!?!?
+--From there, we can try and define program equality as a lambda term that uses reify on both arguments and performs the
+--necessary checks (including testing bound variables by substituting numerals and performing numerical equality checks)
+--then try carrying on with step_reify

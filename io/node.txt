@@ -1,0 +1,47 @@
+(\id ->
+(\const ->
+(\fix ->
+(\eval ->
+
+(\const_program -> 
+(\fix1 ->
+(\triple -> 
+(\wait -> 
+(\fix2 ->
+
+(\quad -> 
+(\wait2 ->
+(\boring ->
+(\node -> 
+(\node1 -> 
+
+node1 (node1 X) Y Z
+
+) (wait2 node)
+) (\t y z -> (#R t) 
+    boring 
+    (\t_1 x -> t_1 
+      boring 
+      (\t_2 w -> z (fix2 eval w) (fix2 eval x)) 
+      (const (y z ((fix2 eval x) z))) 
+      boring 
+      boring
+    ) 
+    (const y) 
+    boring 
+    boring
+  )
+) (const id)
+) (\f a b c -> const_program (quad f a b c) c id)
+) (\a b c d q -> q a b c d)
+
+) (wait fix1)
+) (\f a b -> const_program (triple f a b) b id)
+) (\a b c t -> t a b c)
+) (\f -> (const_program (\x -> f (x x)) f) (\x -> f (x x)))
+) (\k p -> #R p (const k) (const (const k)) (const k) (const k) (const k))
+
+) (\f r -> r id (\l r -> (f l) (f r)) (\t x -> f (t x)) #R id)
+) (\f -> (\x -> f (x x)) (\x -> f (x x)))
+) (\a b -> a)
+) (\x -> x)
