@@ -14,7 +14,7 @@ inOut f = do
     input <- readFile "io/in.txt"
     writeFile "io/out.txt" $ f input
 
-inPrint :: (String -> String) -> IO ()
+inPrint :: (String -> String) -> IO () --e.g. inPrint $ lambdaSingle 20
 inPrint f = do
     setLocaleEncoding utf8
     input <- readFile "io/in.txt"
@@ -43,33 +43,89 @@ tail = (\l -> l (\n c -> n) (\h t -> t))
 
 -------------------------------------------
 
+(\id ->
+(\const ->
 (\compose -> 
 (\fix ->
 (\eval ->
-(\const -> 
+
 (\const_program -> 
 (\fix1 ->
 (\triple -> 
 (\wait -> 
-(\fix2 -> 
+(\fix2 ->
 
-(\example ->
+(\quad -> 
+(\wait2 ->
+(\boring ->
+(\node -> 
+(\node1 -> 
 
-fix2 eval (#R example)
-
-) (\x y -> y x (\b -> b))
+node1 (node1 X) Y Z
+ 
+) (wait2 node)
+) (\t y z -> (#R t) 
+    boring 
+    (\t_1 x -> t_1 
+      boring 
+      (\t_2 w -> z (fix2 eval w) (fix2 eval x)) 
+      (const (y z ((fix2 eval x) z))) 
+      boring 
+      boring
+    ) 
+    (const y) 
+    boring 
+    boring
+  )
+) (const id)
+) (\f a b c -> const_program (quad f a b c) c id)
+) (\a b c d q -> q a b c d)
 
 ) (wait fix1)
-) (\f a b -> const_program (triple f a b) b (\x -> x))
+) (\f a b -> const_program (triple f a b) b id)
 ) (\a b c t -> t a b c)
 ) (\f -> (const_program (\x -> f (x x)) f) (\x -> f (x x)))
-) (\k p -> #R p (const k) (const (const k)) (const k) (const k))
-) (\a b -> a)
-) (\f r -> r (\x -> x) (\l r -> (f l) (f r)) (\t x -> f (t x)) #R)
+) (\k p -> #R p (const k) (const (const k)) (const k) (const k) (const k))
+
+) (\f r -> r id (\l r -> (f l) (f r)) (\t x -> f (t x)) #R id)
 ) (\f -> (\x -> f (x x)) (\x -> f (x x)))
 ) (\g f x -> g (f x))
+) (\a b -> a)
+) (\x -> x)
 
 -------------------------------------------
+--3 equivalent formulations:
+
+(\f -> ...2 ) (\a b c -> ...1 )
+
+let f a b c = ...1 in ...2
+
+{
+    f a b c = ...1
+    ...2
+}
+
+--Or reverse application arguments (application becomes right associative)
+
+(\a b c -> ...1 ) (\f -> 
+    ...2 
+)
+
+--Explicit application operator and remove unessesary lambdas
+
+(a b c -> ...1 ) => (f -> 
+    ...2 
+)
+
+--Computation rule (no brackets because there's no ambiguity here since -> only takes a variable on its left side):
+
+U => x -> T = T[x:=U]
+
+--Associativity:
+
+x -> y -> T = x -> (y -> T)
+
+T => U => V = 
 -}
 
 fix :: (a -> a) -> a

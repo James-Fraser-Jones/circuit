@@ -1,4 +1,4 @@
-module Lambda(lambda, parseLambda, normalizeLambda) where
+module Lambda(lambda, lambdaSingle, parseLambda, normalizeLambda, normalizeLambdaSingle) where
 
 import Types
 import Utils
@@ -15,6 +15,11 @@ import Data.List.Split(splitOn)
 
 lambda :: Int -> Int -> String -> String
 lambda i n s = either id (format i n normalizeLambda) (parseLambda s)
+
+lambdaSingle :: Int -> String -> String
+lambdaSingle i s = either id f (parseLambda s) where
+    f l = let (terminated, l') = normalizeLambdaSingle i l 
+           in show l' ++ if terminated then "" else "\n... reduction continues ..."
 
 ---------------------------------------------------------------
 --Parsing Lambda Expressions
@@ -72,8 +77,8 @@ instance Show Lambda where
         Lam s t -> collect [s] t
         App a b -> (if isLam a then bracket else id) (show a) <> " " <> (if isLam b || isApp b then bracket else id) (show b)
         Var s -> s
-        Mvar s -> s
         Rei -> "#R"
+        Mvar s -> s
 
 collect :: [String] -> Lambda -> String
 collect names t = case t of
@@ -140,19 +145,25 @@ reduceNormal _ = Nothing
 normalizeLambda :: Lambda -> [Lambda]
 normalizeLambda b = b : maybe [] normalizeLambda (reduceNormal b)
 
+normalizeLambdaSingle :: Int -> Lambda -> (Bool, Lambda)
+normalizeLambdaSingle (-1) l = (False, l)
+normalizeLambdaSingle n l = case reduceNormal l of
+    Nothing -> (True, l)
+    Just l' -> normalizeLambdaSingle (n - 1) l'
+
 ---------------------------------------------------------------
 --Reification
 
 reify :: Lambda -> Lambda
 reify l = case l of
   (Var x)   -> let f = fresh $ Set.singleton x
-                in Lam (f "#a") $ Lam (f "#b") $ Lam (f "#c") $ Lam (f "#d") $ App (Var (f "#a")) (Var x)
+                in Lam (f "#a") $ Lam (f "#b") $ Lam (f "#c") $ Lam (f "#d") $ Lam (f "#e") $ App (Var (f "#a")) (Var x)
   (App t u) -> let f = fresh $ Set.union (free rt) (free ru)
                    rt = reify t
                    ru = reify u
-                in Lam (f "#a") $ Lam (f "#b") $ Lam (f "#c") $ Lam (f "#d") $ App (App (Var (f "#b")) rt) ru
+                in Lam (f "#a") $ Lam (f "#b") $ Lam (f "#c") $ Lam (f "#d") $ Lam (f "#e") $ App (App (Var (f "#b")) rt) ru
   (Lam s t) -> let f = fresh $ (free rt)
                    rt = reify t
-                in Lam (f "#a") $ Lam (f "#b") $ Lam (f "#c") $ Lam (f "#d") $ App (Var (f "#c")) (Lam s rt)
-  (Mvar s)  -> error "Reify operator applied to metavariable"
-  Rei       -> Lam "#a" $ Lam "#b" $ Lam "#c" $ Lam "#d" $ Var "#d"
+                in Lam (f "#a") $ Lam (f "#b") $ Lam (f "#c") $ Lam (f "#d") $ Lam (f "#e") $ App (Var (f "#c")) (Lam s rt)
+  Rei       -> Lam "#a" $ Lam "#b" $ Lam "#c" $ Lam "#d" $ Lam "#e" $ Var "#d"
+  (Mvar s)  -> Lam "#a" $ Lam "#b" $ Lam "#c" $ Lam "#d" $ Lam "#e" $ App (Var "#e") (Mvar s)
