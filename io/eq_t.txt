@@ -1,4 +1,10 @@
+(\id ->
+(\const -> 
 (\fix ->
+
+(\const_data ->
+(\fix2 ->
+(\fix3 ->
 
 (\true -> 
 (\false ->
@@ -13,10 +19,10 @@
 (\eq_r -> 
 (\eq_t ->
 
-eq_t (\a b -> b a) (\x y -> y x)
+eq_t eq_t eq_t
 
 ) (\t_1 t_2 -> eq_r (#R t_1) (#R t_2))
-) (fix eq_r_step zero) 
+) (fix3 eq_r_step zero) 
 ) (\f n r_1 r_2 -> r_1
     (\r_1v -> r_2
       (\r_2v -> eq_n r_1v r_2v)
@@ -55,7 +61,7 @@ eq_t (\a b -> b a) (\x y -> y x)
     )
   )
 
-) (fix eq_n_step)
+) (fix2 eq_n_step)
 ) (\f n_1 n_2 -> n_1 
     (n_2 
       true 
@@ -73,4 +79,10 @@ eq_t (\a b -> b a) (\x y -> y x)
 ) (\t f -> f)
 ) (\t f -> t)
 
+) (\f d_1 d_2 -> (\l -> (const_data l d_2) l) (\x -> f (x x)) d_1 d_2)
+) (\f d -> (\l -> (const_data l d) l) (\x -> f (x x)) d)
+) (\a b -> #R b (const a) (const (const a)) (const a) a (const a))
+
 ) (\f -> (\x -> f (x x)) (\x -> f (x x)))
+) (\a b -> a)
+) (\x -> x)

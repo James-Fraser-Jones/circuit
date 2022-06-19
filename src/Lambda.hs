@@ -12,6 +12,7 @@ import Control.Monad
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.List.Split(splitOn)
+import Text.Read(readMaybe)
 
 lambda :: Int -> Int -> String -> String
 lambda i n s = either id (format i n normalizeLambda) (parseLambda s)
@@ -108,9 +109,10 @@ free _ = Set.empty
 fresh :: Set String -> String -> String
 fresh exclude s = if not (Set.member s exclude) then s else fresh exclude next
   where next = intercalate "_" $ 
-          if length chunks == 1 
-            then chunks ++ pure "1" 
-            else init chunks ++ pure (show (read (last chunks) + 1))
+          if length chunks == 1 then chunks ++ pure "1" 
+          else case readMaybe (last chunks) of 
+            Just n -> init chunks ++ pure (show $ n + 1)
+            Nothing -> chunks ++ pure "1"
         chunks = splitOn "_" s
 
 --http://www.cs.nott.ac.uk/~psznhn/G54FOP/LectureNotes/lecture11-9up.pdf
