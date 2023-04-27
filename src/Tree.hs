@@ -20,8 +20,6 @@ free k (Alloc n rs) = Alloc n (k:rs)
 ------------------------------------------------------------------------
 --Trees
 
-
-
 new :: (Ord k, Enum k) => k -> n k -> Tree n k
 new k n = insert n t
   where t = Tree Map.empty k (empty k)
@@ -35,7 +33,7 @@ insert n (Tree d t a) = Tree d' t a'
         d' = Map.insert k n d
 
 replace :: (Ord k, Enum k) => k -> n k -> Tree n k -> Tree n k
-replace k n (Tree d t a) = Tree d' t a 
+replace k n (Tree d t a) = Tree d' t a
   where d' = Map.update (const $ Just n) k d
 
 delete :: (Ord k, Enum k) => k -> k -> Tree n k -> Tree n k

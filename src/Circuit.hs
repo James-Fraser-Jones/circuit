@@ -195,4 +195,3 @@ circuitBrujin b = case b of
          in append 1 (arrow True y'') x'' 
     BInd n -> Circuit [[full, full]] (2, 1) [(0, n)]
     BCon s -> Circuit (pure s) (length s, 1) []
-    BQte -> Circuit (pure "#Quote") (6, 1) []

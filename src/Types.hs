@@ -8,37 +8,16 @@ import qualified Data.Map as Map
 data Lambda = Lam String Lambda
             | App Lambda Lambda
             | Var String
-            | Mvar String
-            | Rei
+            | Con String
 
 data Brujin = BLam Brujin
             | BApp Brujin Brujin
             | BInd Int
             | BCon String
-            | BQte
 
 newtype BrujinContext = BrujinContext { unContext :: [(String, Int)] }
 
 -----------------------------------------------------------------------
-
-data Natree = Node
-            | Attach Natree Natree
-            | TCon String
-
------------------------------------------------------------------------
-
-data LunaOp = LImp 
-            | LAnd 
-            | LOr
-            | LApp
-
-data Luna = LVar String
-          | LBin String
-          | LOp LunaOp Luna Luna
-
-data Bruna = BBin
-           | BVar Int
-           | BOp LunaOp Bruna Bruna
 
 data Alloc k = Alloc {next :: k, recycle :: [k]}
 

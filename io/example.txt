@@ -1,0 +1,17 @@
+(\zero ->
+(\succ ->
+(\add ->
+
+(\two ->
+(\three ->
+
+add two three
+
+) (succ (succ (succ zero)))
+) (succ (succ zero))
+
+) (\n m -> n succ m)
+) (\n s z -> s (n s z))
+) (\s z -> z) 
+
+Succ Zero

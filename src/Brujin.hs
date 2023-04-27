@@ -9,19 +9,6 @@ import Data.List
 brujin :: Int -> Int -> String -> String
 brujin i n s = either id (format i n normalizeBrujin) (parseLambda s >>= convertBrujin)
 
--- both :: Int -> Int -> String -> String
--- both i n s = case parseLambda s of
---     Left err -> err
---     Right l -> case convertBrujin l of
---         Left err -> err 
---         Right b -> 
---             let results = take i $ zip (normalizeLambda l) (normalizeBrujin b)
---                 strings = map f results
---                 f (l, b) = case convertBrujin l of
---                     Left err -> err
---                     Right b' -> show l <> "\n" <> show b' <> "\n" <> show b
---              in concat $ intersperse (replicate n '\n') $ strings
-
 ---------------------------------------------------------------
 --Converting Lambda Expressions
 
@@ -51,15 +38,13 @@ instance Show Brujin where
         BApp b c -> (if isBLam b then bracket else id) (show b) <> " " <> (if isBLam c || isBApp c then bracket else id) (show c)
         BInd n -> show n
         BCon s -> s
-        BQte -> "#Quote"
 
 convertBrujin' :: BrujinContext -> Lambda -> Either String Brujin
 convertBrujin' (BrujinContext c) l = case l of
     Lam s l -> BLam <$> convertBrujin' (updateContext s $ BrujinContext c) l
     App a b -> BApp <$> (convertBrujin' (BrujinContext c) a) <*> (convertBrujin' (BrujinContext c) b)
     Var s -> maybe (Left $ "Scope Error: Variable \"" <> s <> "\" not in scope") (Right . BInd) (lookup s c)
-    Mvar s -> Right $ BCon s
-    Rei -> Right BQte
+    Con s -> Right $ BCon s
 
 convertBrujin :: Lambda -> Either String Brujin
 convertBrujin = convertBrujin' emptyContext
@@ -76,7 +61,6 @@ modifyIndices' d f b = case b of
     BApp b1 b2 -> BApp (modifyIndices' d f b1) (modifyIndices' d f b2)
     BInd n -> f d n
     BCon s -> BCon s
-    BQte -> BQte
 
 --mark substitution sites with -1 and decrement free variables of function body
 prepare :: Int -> Int -> Brujin
@@ -111,7 +95,6 @@ isFree depth index = index >= depth
 
 reduceNormal :: Brujin -> Maybe Brujin
 reduceNormal b = case b of
-    BApp BQte t -> Just $ quote t
     BApp (BLam b1) b2 -> Just $ beta b1 b2       --reduce outer before inner
     BApp b1 b2 -> case reduceNormal b1 of        --reduce left values before right ones
         Just b' -> Just $ BApp b' b2
@@ -122,16 +105,3 @@ reduceNormal b = case b of
 
 normalizeBrujin :: Brujin -> [Brujin]
 normalizeBrujin b = b : maybe [] normalizeBrujin (reduceNormal b)
-
----------------------------------------------------------------
---Quotation and Interpretation
-
-quote :: Brujin -> Brujin
-quote b = let inc = modifyIndices (increment 5) in
-    foldr (.) id (replicate 5 BLam) $ case b of
-        BInd n -> BApp (BInd 4) (inc $ BInd n)
-        BApp t u -> BApp (BApp (BInd 3) (quote (inc t))) (quote (inc u))
-        BLam t -> let BLam t' = inc $ BLam t
-                   in BApp (BInd 2) (BLam $ quote t')
-        BCon s -> BApp (BInd 1) (BCon s)
-        BQte -> BInd 0

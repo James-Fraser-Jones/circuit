@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 560326bee8484f6a4980c738f670f4dee73048341a6741038f096f7afc66c903
+-- hash: aeb7c7594672a180d704825733d4f217d8d6f3ff6f67c6a36a5d913d4da49b94
 
 name:           circuit
 version:        0.1.0.0
@@ -31,8 +31,6 @@ library
       Circuit
       Lambda
       Lib
-      Luna
-      Natree
       Parser
       Tree
       Types
