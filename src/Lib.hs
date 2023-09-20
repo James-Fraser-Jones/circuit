@@ -6,18 +6,20 @@ import Lambda
 import Brujin
 import Circuit
 
-import GHC.IO.Encoding
-
 --e.g. runFile "example" "lambda" $ lambda 100 1
 --e.g. runFile "example" "circuit" $ circuit 100 1
-runFile :: String -> String -> (String -> String) -> IO () 
-runFile file appended f = do
-    setLocaleEncoding utf8
+runFileIO :: String -> String -> (String -> String) -> IO () 
+runFileIO file appended f = do
     input <- readFile ("io/" ++ file ++ ".txt")
     writeFile ("io/" ++ file ++ "_" ++ appended ++ "_out.txt") $ f input
 
-runPrint :: String -> (String -> String) -> IO () --e.g. runPrint "example" $ lambdaSingle 20
-runPrint file f = do
-    setLocaleEncoding utf8
+runFileI :: String -> (String -> String) -> IO () --e.g. runPrint "example" $ lambdaSingle 20
+runFileI file f = do
     input <- readFile ("io/" ++ file ++ ".txt")
     putStrLn $ f input
+
+runLambda :: String -> Int -> IO () --e.g. runLambda "(\x -> x) (\y -> y)" 100
+runLambda expr reductions = putStrLn $ lambda reductions 1 expr
+
+runCircuit :: String -> Int -> IO () --e.g. runCircuit "(\x -> x) (\y -> y)" 100
+runCircuit expr reductions = putStrLn $ circuit reductions 1 expr
