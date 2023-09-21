@@ -18,8 +18,8 @@ runFileI file f = do
     input <- readFile ("io/" ++ file ++ ".txt")
     putStrLn $ f input
 
-runLambda :: String -> Int -> IO () --e.g. runLambda "(\x -> x) (\y -> y)" 100
-runLambda expr reductions = putStrLn $ lambda reductions 1 expr
+runLambda :: String -> Int -> Int -> IO () --e.g. runLambda "(\x -> x) (\y -> y)" 100
+runLambda expr reductions newlines = putStrLn $ lambda reductions newlines expr
 
-runCircuit :: String -> Int -> IO () --e.g. runCircuit "(\x -> x) (\y -> y)" 100
-runCircuit expr reductions = putStrLn $ circuit reductions 1 expr
+runCircuit :: String -> Int -> Int -> IO () --e.g. runCircuit "(\x -> x) (\y -> y)" 100
+runCircuit expr reductions newlines = putStrLn $ circuit reductions newlines expr

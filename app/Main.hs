@@ -9,6 +9,7 @@ data Args = Args {
     expr :: String
   , lambda :: Bool
   , reductions :: Int
+  , newlines :: Int
 }
 
 args :: Parser Args
@@ -31,6 +32,14 @@ args = Args
        <> showDefault
        <> value 100
         )
+    <*> option auto
+        ( long "newlines"
+       <> short 'n'
+       <> metavar "INT"
+       <> help "Number of newlines to seperate reductions by"
+       <> showDefault
+       <> value 1
+        )
 
 --example: .stack-work/dist/x86_64-linux-tinfo6-libc6-pre232/Cabal-3.2.1.0/build/circuit-exe/circuit-exe -e "(\x -> x) (\y -> y)"
 main :: IO ()
@@ -47,4 +56,4 @@ parseArgs = execute =<< execParser opts
      <> header "circuit - a novel visualizer for the lambda calculus" )
 
 execute :: Args -> IO ()
-execute (Args e l r) = (if l then runLambda else runCircuit) e r
+execute (Args e l r n) = (if l then runLambda else runCircuit) e r n
