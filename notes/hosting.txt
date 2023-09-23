@@ -22,4 +22,6 @@ notes about the way this project is hosted:
     -this means the server stays up and running while I'm not logged in
     -relevant commands: "pm2 list", "pm2 start app.js", "pm2 delete 0"
   -SSHing into the EC2 instance using vscode is really easy and really convenient!
+  -I had to assign an AWS "Elastic IP Address" to the EC2 instance in order to prevent it from changing if I have to reboot the instance for whatever reason
+  -had to close down the old instance and start up with another because it kept crashing on stack build, this time I choose ubuntu instead of Amazon Linux
 
