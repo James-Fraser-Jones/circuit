@@ -15,7 +15,7 @@ import Data.List.Split(splitOn)
 import Text.Read(readMaybe)
 
 lambda :: Int -> Int -> String -> String
-lambda i n s = either id (format i n normalizeLambda) (parseLambda s)
+lambda i n s = either id (format i (n+1) normalizeLambda) (parseLambda s)
 
 lambdaSingle :: Int -> String -> String
 lambdaSingle i s = either id f (parseLambda s) where
