@@ -61,9 +61,8 @@ vars = do
 
 con :: Parser Lambda
 con = do
-    c <- oneOf $ ['A'..'Z']
-    s <- iden
-    return $ Con $ c:s
+    s <- idenUpper
+    return $ Con s
 
 ---------------------------------------------------------------
 --Printing Lambda Expressions

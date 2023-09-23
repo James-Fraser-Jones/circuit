@@ -78,6 +78,12 @@ iden = do
     xs <- many $ lower <|> upper <|> digit <|> char '_'
     return $ x:xs
 
+idenUpper :: Parser String
+idenUpper = do 
+    x <- upper
+    xs <- many $ lower <|> upper <|> digit <|> char '_'
+    return $ x:xs
+
 space :: Parser Char
 space = oneOf [' ','\t','\n','\r']
 
