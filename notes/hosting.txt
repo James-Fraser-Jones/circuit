@@ -1,0 +1,25 @@
+notes about the way this project is hosted:
+
+-tried to use AWS Lambda to respond to HTTP requests and run the compiled Haskell binary, 
+-this proved too difficult because compiling a static Haskell binary (one with no dependencies to OS-level utilities etc..)
+-is extremely difficult and error prone
+
+-instead, we're using an EC2 instance to build and subsequently host the project
+-building using stack, as expected
+-hosting works by allowing HTTP traffic on port 80 and custom TCP traffic on port 3000 which is where our server is listening
+-the server is simply a node server which recieves http POST requests to the ":3000/reduce" endpoint
+-it expects to recieve text in the body of this request which corresponds to a lambda expression
+-it then passes this to the compiled Haskell binary, which is using optparse-applicative to implement command line arguments
+-the specific argument for passing an expression is: "-e EXPR"
+-when it responds with the output text, the node server simply responds with that
+-couple of other issues:
+  -CORS errors: just had to set settings in the node server to allow requests from any origin
+  -mixed errors: when recieving requests from this endpoint to my website (which is hosted via AWS Amplify which automatically takes care of HTTPS stuff)
+    -I was getting "mixed" errors which basically happen because my website was https secured but recieving data from an unsecured (http) endpoint
+    -solution was to hide the EC2 instance behind AWS API Gateway which is https secured by default, and able to forward requests to my EC2 server
+-couple more points:
+  -I use a utility called "PM2" to run my node server on a seperate thread from the one I'm using to SSH into the machine with
+    -this means the server stays up and running while I'm not logged in
+    -relevant commands: "pm2 list", "pm2 start app.js", "pm2 delete 0"
+  -SSHing into the EC2 instance using vscode is really easy and really convenient!
+
