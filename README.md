@@ -1,4 +1,4 @@
-# circuit
+# [circuit](https://www.fraser-jones.co.uk/projects/circuit)
 
 This project is a fully-fledged untyped lambda calculus parser, printer and evaluator.
 
